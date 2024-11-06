@@ -14,4 +14,11 @@
     <Folder Include="Controllers\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Flexiro.Application\Flexiro.Application.csproj" />
+    <ProjectReference Include="..\Flexiro.Contracts\Flexiro.Contracts.csproj" />
+    <ProjectReference Include="..\Flexiro.Identity\Flexiro.Identity.csproj" />
+    <ProjectReference Include="..\Flexiro.Services\Flexiro.Services.csproj" />
+  </ItemGroup>
+
 </Project>

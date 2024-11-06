@@ -23,4 +23,10 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Flexiro.Application\Flexiro.Application.csproj" />
+    <ProjectReference Include="..\Flexiro.Contracts\Flexiro.Contracts.csproj" />
+    <ProjectReference Include="..\Flexiro.Services\Flexiro.Services.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Flexiro.Application\Flexiro.Application.csproj" />
+    <ProjectReference Include="..\Flexiro.Contracts\Flexiro.Contracts.csproj" />
+  </ItemGroup>
+
 </Project>
