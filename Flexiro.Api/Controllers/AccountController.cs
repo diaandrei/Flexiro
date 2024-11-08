@@ -7,6 +7,8 @@ using Flexiro.Application.DTOs;
 using LoginRequest = Flexiro.Contracts.Requests.LoginRequest;
 using RegisterRequest = Flexiro.Contracts.Requests.RegisterRequest;
 using Flexiro.Identity;
+using Flexiro.Contracts.Requests;
+using Flexiro.Services.Services.Interface;
 
 namespace Flexiro.API.Controllers
 {
@@ -19,13 +21,15 @@ namespace Flexiro.API.Controllers
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IConfiguration _config;
+        public readonly IShopService _shopService;
 
-        public AccountController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, SignInManager<ApplicationUser> signInManager, IConfiguration config)
+        public AccountController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, SignInManager<ApplicationUser> signInManager, IConfiguration config, IShopService shopService)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _signInManager = signInManager;
             _config = config;
+            _shopService = shopService;
         }
 
         [HttpPost("Register")]
@@ -167,6 +171,150 @@ namespace Flexiro.API.Controllers
             {
                 response.Success = false;
                 response.Title = ex.Message;
+            }
+            return response;
+        }
+
+        [HttpPost("RegisterSeller")]
+        public async Task<ResponseModel<string>> RegisterSeller([FromForm] RegisterSellerRequest model)
+        {
+            ResponseModel<string> response = new ResponseModel<string>();
+
+            try
+            {
+                // 1. Check if a user with this email already exist
+                var user = await _userManager.FindByEmailAsync(model.Email);
+
+                if (user == null)
+                {
+                    // Create new ApplicationUser for the seller
+                    user = new ApplicationUser
+                    {
+                        UserName = model.UserName,
+                        Email = model.Email,
+                        FirstName = model.OwnerName,
+                        PhoneNumber = model.ContactNo,
+                        Country = model.Country,
+                        City = model.City,
+                        ZipCode = model.ZipCode,
+                        IsSeller = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    // Create the user account
+                    var result = await _userManager.CreateAsync(user, model.Password);
+
+                    if (!result.Succeeded)
+                    {
+                        response.Success = false;
+                        response.Title = "Failed to create user account";
+                        response.Description = string.Join(", ", result.Errors.Select(e => e.Description));
+                        return response;
+                    }
+
+                    // 2. Assign the "Seller" role if not already assigned
+                    if (!await _userManager.IsInRoleAsync(user, "Seller"))
+                    {
+                        var roleResult = await _userManager.AddToRoleAsync(user, "Seller");
+                        if (!roleResult.Succeeded)
+                        {
+                            response.Success = false;
+                            response.Title = "Failed to assign seller role";
+                            response.Description = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+                            return response;
+                        }
+                    }
+
+                    string logoPath = null!;
+
+                    if (model.ShopLogo != null!)
+                    {
+                        // Generate a unique file name and path
+                        var fileName = $"{Guid.NewGuid()}_{model.ShopLogo.FileName}";
+                        var filePath = Path.Combine("wwwroot/uploads/logos", fileName);
+                        if (!Directory.Exists(Path.Combine("wwwroot", "uploads", "logos")))
+                        {
+                            Directory.CreateDirectory(Path.Combine("wwwroot", "uploads", "logos"));
+                        }
+                        // Save the file to the server
+                        await using (var stream = new FileStream(filePath, FileMode.Create))
+                        {
+                            await model.ShopLogo.CopyToAsync(stream);
+                        }
+
+                        logoPath = $"/uploads/logos/{fileName}";
+                    }
+
+                    // 3. Create the shop linked to the user
+                    var shop = new Shop
+                    {
+                        OwnerId = user.Id,
+                        OwnerName = model.OwnerName,
+                        ShopName = model.StoreName,
+                        ShopDescription = model.StoreDescription,
+                        ShopLogo = logoPath,
+                        AdminStatus = ShopAdminStatus.Pending,
+                        SellerStatus = ShopSellerStatus.Open,
+                        Slogan = model.Slogan,
+                        OpeningDate = model.OpeningDate,
+                        OpeningTime = model.OpeningTime,
+                        ClosingTime = model.ClosingTime,
+                        CreatedAt = DateTime.UtcNow,
+                        IsSeller = true
+                    };
+
+                    // Save the shop to the database
+                    var resultShop = await _shopService.CreateShopAsync(shop);
+
+                    response.Success = true;
+                    response.Title = "Seller registered successfully";
+                }
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Title = "Registration failed";
+                response.Description = ex.Message;
+            }
+
+            return response;
+        }
+
+        [HttpGet("UserDetails")]
+        [Authorize]
+        public async Task<ResponseModel<UserDetailResponse>> GetUserDetails(string userId)
+        {
+            var response = new ResponseModel<UserDetailResponse>();
+
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+
+                if (user == null)
+                {
+                    response.Success = false;
+                    response.Title = "User not found";
+                    return response;
+                }
+
+                // Prepare the response model with limited user details
+                response.Content = new UserDetailResponse
+                {
+                    Email = user.Email!,
+                    FirstName = user.FirstName!,
+                    LastName = user.LastName!,
+                    Address = user.Address,
+                    Country = user.Country,
+
+                };
+                response.Success = true;
+                response.Title = "User details retrieved successfully";
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Title = "Error fetching user details";
+                response.Description = ex.Message;
             }
             return response;
         }
