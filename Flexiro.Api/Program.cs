@@ -1,43 +1,80 @@
 using EasyRepository.EFCore.Generic;
+using Flexiro.API.Swagger;
 using Flexiro.Application.Database;
 using Flexiro.Application.Models;
+using Flexiro.Identity;
+using Flexiro.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using Swashbuckle.AspNetCore.SwaggerGen;
+using System.Text;
+using System.Text.Json;
 
-namespace Flexiro.Api
+var builder = WebApplication.CreateBuilder(args);
+var config = builder.Configuration;
+var connectionString = config.GetConnectionString("Database");
+
+builder.Services.AddDbContext<FlexiroDbContext>(options =>
+        options.UseSqlServer(connectionString));
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
+         .AddEntityFrameworkStores<FlexiroDbContext>()
+         .AddDefaultTokenProviders();
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.AddAuthentication(x =>
 {
-    public class Program
+    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    x.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(x =>
+{
+    x.TokenValidationParameters = new TokenValidationParameters
     {
-        public static void Main(string[] args)
-        {
-            var builder = WebApplication.CreateBuilder(args);
-            var config = builder.Configuration;
-            var connectionString = config.GetConnectionString("Database");
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(config["Jwt:Key"]!)),
+        ValidateIssuerSigningKey = true,
+        ValidateLifetime = true,
+        ValidIssuer = config["Jwt:Issuer"],
+        ValidAudience = config["Jwt:Audience"],
+        ValidateIssuer = true,
+        ValidateAudience = true
+    };
+});
 
-            builder.Services.AddDbContext<FlexiroDbContext>(options =>
-                options.UseSqlServer(connectionString));
-            builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
-                .AddEntityFrameworkStores<FlexiroDbContext>()
-                .AddDefaultTokenProviders();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddAutoMapper(typeof(Program).Assembly);
+builder.Services.AddApplication();
+builder.Services.ApplyEasyRepository<FlexiroDbContext>();
+builder.Services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwagger>();
+builder.Services.AddControllers();
 
-            builder.Services.AddControllers();
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
 
-            builder.Services.ApplyEasyRepository<FlexiroDbContext>();
+var app = builder.Build();
 
-            var app = builder.Build();
-
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
-
-            app.UseHttpsRedirection();
-            app.UseAuthorization();
-            app.MapControllers();
-            app.Run();
-        }
-    }
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
+
+app.UseMiddleware<JwtMiddleware>();
+app.UseHttpsRedirection();
+
+app.UseAuthentication();
+app.UseStaticFiles();
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
