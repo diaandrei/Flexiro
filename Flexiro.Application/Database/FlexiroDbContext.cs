@@ -26,7 +26,6 @@ namespace Flexiro.Application.Database
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
-
             // One-to-Many relationship between Cart and CartItems
             builder.Entity<Cart>()
                 .HasMany(c => c.CartItems)
