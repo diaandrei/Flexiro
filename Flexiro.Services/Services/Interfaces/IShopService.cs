@@ -2,7 +2,7 @@
 using Flexiro.Contracts.Requests;
 using Flexiro.Contracts.Responses;
 
-namespace Flexiro.Services.Services.Interface
+namespace Flexiro.Services.Services.Interfaces
 {
     public interface IShopService
     {

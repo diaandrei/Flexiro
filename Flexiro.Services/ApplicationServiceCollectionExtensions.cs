@@ -1,4 +1,4 @@
-﻿using Flexiro.Services.Services.Interface;
+﻿using Flexiro.Services.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Flexiro.Services

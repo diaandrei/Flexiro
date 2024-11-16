@@ -3,7 +3,7 @@ using EasyRepository.EFCore.Generic;
 using Flexiro.Application.Models;
 using Flexiro.Contracts.Requests;
 using Flexiro.Contracts.Responses;
-using Flexiro.Services.Services.Interface;
+using Flexiro.Services.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Flexiro.Services

@@ -8,7 +8,7 @@ using LoginRequest = Flexiro.Contracts.Requests.LoginRequest;
 using RegisterRequest = Flexiro.Contracts.Requests.RegisterRequest;
 using Flexiro.Identity;
 using Flexiro.Contracts.Requests;
-using Flexiro.Services.Services.Interface;
+using Flexiro.Services.Services.Interfaces;
 
 namespace Flexiro.API.Controllers
 {
