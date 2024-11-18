@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Flexiro.Application.Models;
+using Microsoft.AspNetCore.Http;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Flexiro.Contracts.Requests
@@ -20,6 +21,8 @@ namespace Flexiro.Contracts.Requests
 
         public required string Description { get; set; }
         public required List<string> Tags { get; set; }
-        public required string SKU { get; set; }
+        public string SKU { get; set; }
+        public ProductStatus Status { get; set; }
+        public AvailabilityStatus Availability { get; set; }
     }
 }

@@ -12,6 +12,6 @@
         public required string Country { get; set; }
         public required string PhoneNumber { get; set; }
         public required string Note { get; set; }
-        public bool Addtoaddressbook { get; set; }
+        public bool AddToAddressBook { get; set; }
     }
 }
