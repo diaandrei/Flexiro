@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Flexiro.Application.Models;
+using Microsoft.AspNetCore.Http;
 
 namespace Flexiro.Contracts.Requests
 {
@@ -18,5 +19,6 @@ namespace Flexiro.Contracts.Requests
         public required List<string> Tags { get; set; }
         public required string SKU { get; set; }
         public bool IsAvailableForSale { get; set; }
+        public ProductStatus Status { get; set; }
     }
 }
