@@ -1,4 +1,5 @@
-﻿using Flexiro.Services.Services.Interfaces;
+﻿using Flexiro.Services.Services;
+using Flexiro.Services.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Flexiro.Services
@@ -8,6 +9,7 @@ namespace Flexiro.Services
         public static IServiceCollection AddApplication(this IServiceCollection services)
         {
             services.AddScoped<IShopService, ShopService>();
+            services.AddScoped<IProductService, ProductService>();
 
             return services;
         }
