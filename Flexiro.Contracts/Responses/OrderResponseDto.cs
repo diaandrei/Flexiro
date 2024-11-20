@@ -1,4 +1,6 @@
-﻿namespace Flexiro.Contracts.Responses
+﻿using Flexiro.Application.Models;
+
+namespace Flexiro.Contracts.Responses
 {
     public class OrderResponseDto
     {
@@ -8,6 +10,7 @@
         public decimal? ShippingCost { get; set; }
         public decimal? Tax { get; set; }
         public decimal TotalAmount { get; set; }
+        public OrderStatus Status { get; set; }
         public DateTime CreatedAt { get; set; }
         public ShippingAddressResponseDto ShippingAddress { get; set; }
         public List<OrderItemResponseDto> OrderItems { get; set; }
