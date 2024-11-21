@@ -31,7 +31,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="AutoMapper\" />
     <Folder Include="wwwroot\uploads\logos\" />
   </ItemGroup>
 

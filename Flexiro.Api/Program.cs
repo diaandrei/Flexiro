@@ -1,4 +1,5 @@
 using EasyRepository.EFCore.Generic;
+using Flexiro.Api.AutoMapper;
 using Flexiro.API.Swagger;
 using Flexiro.Application.Database;
 using Flexiro.Application.Models;
@@ -47,6 +48,7 @@ builder.Services.AddAuthentication(x =>
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddAutoMapper(typeof(Program).Assembly);
+builder.Services.AddAutoMapper(typeof(AutoMapperProfile));
 builder.Services.AddApplication();
 builder.Services.ApplyEasyRepository<FlexiroDbContext>();
 builder.Services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwagger>();
