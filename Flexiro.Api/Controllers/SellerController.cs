@@ -2,10 +2,12 @@
 using Flexiro.Application.Models;
 using Flexiro.Contracts.Requests;
 using Flexiro.Services.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Flexiro.API.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class SellerController : ControllerBase

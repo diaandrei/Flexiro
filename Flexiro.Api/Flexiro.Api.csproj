@@ -32,7 +32,6 @@
 
 	<ItemGroup>
 		<Folder Include="wwwroot\uploads\logos\" />
-		<Folder Include="wwwroot\uploads\productImages\" />
 	</ItemGroup>
 
 	<ItemGroup>
