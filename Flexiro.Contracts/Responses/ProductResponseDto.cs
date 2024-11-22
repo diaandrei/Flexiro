@@ -14,7 +14,7 @@ namespace Flexiro.Contracts.Responses
         public decimal Weight { get; set; }
         public required string ProductCondition { get; set; }
         public bool ImportedItem { get; set; }
-        public required List<string> ProductImageUrls { get; set; }
+        public List<string> ProductImageUrls { get; set; }
         public int StockQuantity { get; set; }
         public required string SKU { get; set; }
         public ProductStatus Status { get; set; }

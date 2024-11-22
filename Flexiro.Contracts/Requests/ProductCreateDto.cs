@@ -17,7 +17,7 @@ namespace Flexiro.Contracts.Requests
         public bool ImportedItem { get; set; }
 
         [SwaggerSchema("Upload product images", Format = "binary")]
-        public required List<IFormFile> ProductImages { get; set; }
+        public List<IFormFile> ProductImages { get; set; }
 
         public required string Description { get; set; }
         public required List<string> Tags { get; set; }
