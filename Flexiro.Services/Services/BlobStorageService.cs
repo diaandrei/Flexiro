@@ -75,7 +75,4 @@ namespace Flexiro.Services.Services
             }
         }
     }
-
-
-
 }
