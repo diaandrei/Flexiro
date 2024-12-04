@@ -2,10 +2,9 @@
 {
     public class ProductListsDto
     {
-        public List<ProductResponseDto> AllProducts { get; set; }
-        public required List<ProductResponseDto> ForSaleProducts { get; set; }
-        public required List<ProductResponseDto> NotForSellProducts { get; set; }
-        public required List<ProductResponseDto> ForSellProducts { get; set; }
-        public required List<ProductResponseDto> DraftProducts { get; set; }
+        public List<ProductResponseDto> ForSaleProducts { get; set; }
+        public List<ProductResponseDto> NotForSaleProducts { get; set; }
+        public List<ProductResponseDto> ForSellProducts { get; set; }
+        public List<ProductResponseDto> DraftProducts { get; set; }
     }
 }
