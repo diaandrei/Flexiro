@@ -19,7 +19,7 @@ namespace Flexiro.Application.Models
 
         public virtual ICollection<ProductImage> ProductImages { get; set; }
         public int StockQuantity { get; set; }
-        public int? totalsold { get; set; }
+        public int? TotalSold { get; set; }
         [Required]
         public string SKU { get; set; }
         public AvailabilityStatus Availability { get; set; }

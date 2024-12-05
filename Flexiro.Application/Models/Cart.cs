@@ -27,5 +27,4 @@ namespace Flexiro.Application.Models
 
         public virtual ICollection<CartItem> CartItems { get; set; }
     }
-
 }

@@ -2,13 +2,13 @@
 {
     public enum OrderStatus
     {
-        New,
-        Pending,
-        Processing,
-        Shipped,
-        Delivered,
-        Canceled,
-        Returned,
-        Completed
+        New = 0,
+        Pending = 1,
+        Processing = 2,
+        Shipped = 3,
+        Delivered = 4,
+        Canceled = 5,
+        Returned = 6,
+        Completed = 7
     }
 }

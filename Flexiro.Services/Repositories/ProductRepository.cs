@@ -288,7 +288,7 @@ namespace Flexiro.Services.Repositories
                 AverageRating = averageRating,
                 TotalReviews = totalReviews,
                 IsInWishlist = isInWishlist,
-                TotalSold = product.totalsold ?? 0,
+                TotalSold = product.TotalSold ?? 0,
                 CategoryName = product.Category?.Name!,
                 Reviews = product.Reviews.Select(review => new ReviewResponseDto
                 {
@@ -345,7 +345,7 @@ namespace Flexiro.Services.Repositories
                     MainImage = product.ProductImages?.FirstOrDefault() != null
                         ? product.ProductImages.First().Path : string.Empty,
                     ImageUrls = product.ProductImages?.Select(img => img.Path).ToList() ?? new List<string>(),
-                    TotalSold = product.totalsold ?? 0,
+                    TotalSold = product.TotalSold ?? 0,
                     AverageRating = product.Reviews.Any() ? product.Reviews.Average(r => r.Rating ?? 0) : 0,
                     TotalReviews = product.Reviews.Count,
                     CategoryName = product.Category?.Name!,
@@ -527,7 +527,7 @@ namespace Flexiro.Services.Repositories
                     DiscountPercentage = p.DiscountPercentage.Value,
                     SaleEndDate = p.SaleEndDate!.Value,
                     StockQuantity = p.StockQuantity,
-                    TotalSold = p.totalsold ?? 0
+                    TotalSold = p.TotalSold ?? 0
                 }).ToList();
 
                 return saleProductDtos;
