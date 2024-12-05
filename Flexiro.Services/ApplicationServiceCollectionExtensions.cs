@@ -1,4 +1,5 @@
-﻿using Flexiro.Services.Services;
+﻿using Flexiro.Services.Repositories;
+using Flexiro.Services.Services;
 using Flexiro.Services.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,9 +9,19 @@ namespace Flexiro.Services
     {
         public static IServiceCollection AddApplication(this IServiceCollection services)
         {
-            services.AddScoped<IShopService, ShopService>();
             services.AddScoped<IProductService, ProductService>();
+            services.AddScoped<IReviewService, ReviewService>();
+            services.AddScoped<IShopService, ShopService>();
+            services.AddScoped<IShippingService, ShippingService>();
+            services.AddScoped<ICartService, CartService>();
             services.AddScoped<IOrderService, OrderService>();
+            services.AddScoped<ICartRepository, CartRepository>();
+            services.AddScoped<IOrderRepository, OrderRepository>();
+            services.AddScoped<IProductRepository, ProductRepository>();
+            services.AddScoped<IReviewRepository, ReviewRepository>();
+            services.AddScoped<IShippingRepository, ShippingRepository>();
+            services.AddScoped<IShopRepository, ShopRepository>();
+            services.AddScoped<IBlobStorageService, BlobStorageService>();
 
             return services;
         }
