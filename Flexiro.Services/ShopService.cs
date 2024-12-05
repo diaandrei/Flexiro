@@ -1,10 +1,11 @@
 ﻿using AutoMapper;
 using EasyRepository.EFCore.Generic;
+using Flexiro.Application.DTOs;
 using Flexiro.Application.Models;
 using Flexiro.Contracts.Requests;
 using Flexiro.Contracts.Responses;
+using Flexiro.Services.Repositories;
 using Flexiro.Services.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace Flexiro.Services
 {
@@ -12,27 +13,25 @@ namespace Flexiro.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-
-        public ShopService(IUnitOfWork unitOfWork, IMapper mapper)
+        private readonly IShopRepository _shopRepository;
+        private readonly IBlobStorageService _blobStorageService;
+        public ShopService(IUnitOfWork unitOfWork, IMapper mapper, IShopRepository shopRepository, IBlobStorageService blobStorageService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _shopRepository = shopRepository;
+            _blobStorageService = blobStorageService;
         }
-
         public async Task<ResponseModel<Shop>> CreateShopAsync(Shop createShopRequest)
         {
             var response = new ResponseModel<Shop>();
 
             try
             {
-                // Map the incoming create request to a new Shop entity using AutoMapper
-                var newShop = _mapper.Map<Shop>(createShopRequest);
+                // Call the repository method to create a new shop
+                var newShop = await _shopRepository.CreateShopAsync(createShopRequest);
 
-                // Add the new shop to the repository
-                await _unitOfWork.Repository.AddAsync(newShop);
-                await _unitOfWork.Repository.CompleteAsync();
-
-                // Set successful response
+                // Set successful response with the created shop details
                 response.Success = true;
                 response.Content = newShop;
                 response.Title = "Shop Created Successfully";
@@ -49,88 +48,60 @@ namespace Flexiro.Services
 
             return response;
         }
-        public async Task<ResponseModel<Shop>> UpdateShopAsync(int shopId, UpdateShopRequest updateShopRequest)
+
+        public async Task<ResponseModel<Shop>> UpdateShopAsync(UpdateShopRequest updateShopRequest)
         {
             var response = new ResponseModel<Shop>();
 
             try
             {
-                // Retrieve the existing shop from the repository
-                var existingShop = await _unitOfWork.Repository
-                    .GetQueryable<Shop>(s => s.ShopId == shopId)
-                    .FirstOrDefaultAsync();
-
-                // Check if the shop exists
-                if (existingShop == null)
+                if (updateShopRequest.ShopLogo != null)
                 {
-                    response.Success = false;
-                    response.Title = "Shop Not Found";
-
-                    response.Description = $"Shop with ID '{shopId}' does not exist.";
-                    return response;
+                    // Upload the new logo to Blob Storage
+                    await using (var stream = updateShopRequest.ShopLogo.OpenReadStream())
+                    {
+                        var imageUrl = await _blobStorageService.UploadImageAsync(stream, updateShopRequest.ShopLogo.FileName);
+                        updateShopRequest.NewLogoPath = imageUrl; // Save relative path or file name
+                    }
                 }
 
-                if (updateShopRequest.ShopLogo != null!)
-                {
-                    // Generate a new file name and path for the new logo
-                    var newFileName = $"{Guid.NewGuid()}_{updateShopRequest.ShopLogo.FileName}";
-                    var newFilePath = Path.Combine("wwwroot/uploads/logos", newFileName);
+                var updatedShop = await _shopRepository.UpdateShopAsync(updateShopRequest);
 
-                    // Save the new file to the server
-                    await using (var stream = new FileStream(newFilePath, FileMode.Create))
-                    {
-                        await updateShopRequest.ShopLogo.CopyToAsync(stream);
-                    }
-
-                    // Optionally delete the old logo file if it exists
-                    if (!string.IsNullOrEmpty(existingShop.ShopLogo))
-                    {
-                        var oldFilePath = Path.Combine("wwwroot", existingShop.ShopLogo.TrimStart('/'));
-
-                        if (File.Exists(oldFilePath))
-                        {
-                            File.Delete(oldFilePath);
-                        }
-                    }
-
-                    // Update the logo path in the database
-                    existingShop.ShopLogo = $"/uploads/logos/{newFileName}";
-                }
-                // Map the updated fields from the request to the existing shop entity
-                var responsep = _mapper.Map(updateShopRequest, existingShop);
-
-                // Update shop in the repository
-                _unitOfWork.Repository.Update(existingShop);
-                await _unitOfWork.Repository.CompleteAsync();
-
-                // Set successful response
                 response.Success = true;
-                response.Content = responsep;
+                response.Content = updatedShop;
                 response.Title = "Shop Updated Successfully";
-                response.Description = $"Shop '{existingShop.ShopName}' has been updated.";
+                response.Description = $"Shop '{updatedShop.ShopName}' has been updated.";
+            }
+            catch (KeyNotFoundException ex)
+            {
+                // Handle the case where the shop was not found
+                response.Success = false;
+                response.Title = "Shop Not Found";
+                response.Description = ex.Message;
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
+                // Handle general exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Updating Shop";
                 response.Description = "An error occurred while updating the shop.";
                 response.ExceptionMessage = ex.Message;
             }
+
             return response;
         }
 
         public async Task<ResponseModel<Shop>> GetShopByIdAsync(int shopId)
         {
             var response = new ResponseModel<Shop>();
+
             try
             {
-                var shop = await _unitOfWork.Repository
-                    .GetQueryable<Shop>(s => s.ShopId == shopId)
-                    .FirstOrDefaultAsync();
+                // Call the repository to retrieve the shop by ID
+                var shop = await _shopRepository.GetShopByIdAsync(shopId);
 
                 // Check if the shop exists
-                if (shop == null)
+                if (shop == null!)
                 {
                     response.Success = false;
                     response.Title = "Shop Not Found";
@@ -163,9 +134,7 @@ namespace Flexiro.Services
             try
             {
                 // Retrieve active shops from the repository
-                var activeShops = await _unitOfWork.Repository
-                    .GetQueryable<Shop>(s => s.AdminStatus == ShopAdminStatus.Active)
-                    .ToListAsync();
+                var activeShops = await _shopRepository.GetActiveShopsAsync();
 
                 // Set successful response
                 response.Success = true;
@@ -192,9 +161,7 @@ namespace Flexiro.Services
             try
             {
                 // Retrieve pending shops from the repository
-                var pendingShops = await _unitOfWork.Repository
-                    .GetQueryable<Shop>(s => s.AdminStatus == ShopAdminStatus.Pending)
-                    .ToListAsync();
+                var pendingShops = await _shopRepository.GetPendingShopsAsync();
 
                 // Set successful response
                 response.Success = true;
@@ -210,6 +177,7 @@ namespace Flexiro.Services
                 response.Description = "An error occurred while retrieving pending shops.";
                 response.ExceptionMessage = ex.Message;
             }
+
             return response;
         }
 
@@ -220,9 +188,7 @@ namespace Flexiro.Services
             try
             {
                 // Retrieve inactive shops from the repository
-                var inactiveShops = await _unitOfWork.Repository
-                    .GetQueryable<Shop>(s => s.AdminStatus == ShopAdminStatus.Inactive)
-                    .ToListAsync();
+                var inactiveShops = await _shopRepository.GetInactiveShopsAsync();
 
                 // Set successful response
                 response.Success = true;
@@ -238,8 +204,10 @@ namespace Flexiro.Services
                 response.Description = "An error occurred while retrieving inactive shops.";
                 response.ExceptionMessage = ex.Message;
             }
+
             return response;
         }
+
         public async Task<ResponseModel<IList<Shop>>> GetAllShopsAsync()
         {
             var response = new ResponseModel<IList<Shop>>();
@@ -247,15 +215,13 @@ namespace Flexiro.Services
             try
             {
                 // Retrieve all shops from the repository
-                var allShops = await _unitOfWork.Repository
-                    .GetQueryable<Shop>()
-                    .ToListAsync();
+                var allShops = await _shopRepository.GetAllShopsAsync();
 
                 // Set successful response
                 response.Success = true;
                 response.Content = allShops;
                 response.Title = "All Shops Retrieved Successfully";
-                response.Description = "All shops have been retrieved from the database.";
+                response.Description = "All shops have been retrieved successfully.";
             }
             catch (Exception ex)
             {
@@ -268,16 +234,15 @@ namespace Flexiro.Services
 
             return response;
         }
+
         public async Task<ResponseModel<IList<Shop>>> SearchShopsByNameAsync(string shopName)
         {
             var response = new ResponseModel<IList<Shop>>();
 
             try
             {
-                // Retrieve shops that match the given name
-                var shops = await _unitOfWork.Repository
-                    .GetQueryable<Shop>(s => s.ShopName.Contains(shopName))
-                    .ToListAsync();
+                // Retrieve shops that match the given name from the repository
+                var shops = await _shopRepository.SearchShopsByNameAsync(shopName);
 
                 // Set successful response
                 response.Success = true;
@@ -296,43 +261,34 @@ namespace Flexiro.Services
 
             return response;
         }
+
         public async Task<int> GetActiveShopsCountAsync()
         {
-            // Count active shops
-            var activeShopsCount = await _unitOfWork.Repository
-                .GetQueryable<Shop>(s => s.AdminStatus == ShopAdminStatus.Active)
-                .CountAsync();
-
+            var activeShopsCount = await _shopRepository.GetActiveShopsCountAsync();
             return activeShopsCount;
         }
+
         public async Task<int> GetPendingShopsCountAsync()
         {
-            var pendingShopsCount = await _unitOfWork.Repository
-                .GetQueryable<Shop>(s => s.AdminStatus == ShopAdminStatus.Pending)
-                .CountAsync();
-
+            var pendingShopsCount = await _shopRepository.GetPendingShopsCountAsync();
             return pendingShopsCount;
         }
         public async Task<int> GetInactiveShopsCountAsync()
         {
-            var inactiveShopsCount = await _unitOfWork.Repository
-                .GetQueryable<Shop>(s => s.AdminStatus == ShopAdminStatus.Inactive)
-                .CountAsync();
-
+            var inactiveShopsCount = await _shopRepository.GetInactiveShopsCountAsync();
             return inactiveShopsCount;
         }
         public async Task<ResponseModel<Shop>> UpdateShopStatusAsync(int shopId, ShopAdminStatus newStatus)
         {
             var response = new ResponseModel<Shop>();
+
             try
             {
-                // Retrieve the existing shop from the repository
-                var existingShop = await _unitOfWork.Repository
-                    .GetQueryable<Shop>(s => s.ShopId == shopId)
-                    .FirstOrDefaultAsync();
+                // Attempt to update the shop status using the repository method
+                var updatedShop = await _shopRepository.UpdateShopStatusAsync(shopId, newStatus);
 
-                // Check if the shop exists
-                if (existingShop == null)
+                // Check if the shop was found and updated
+                if (updatedShop == null!)
                 {
                     response.Success = false;
                     response.Title = "Shop Not Found";
@@ -340,18 +296,11 @@ namespace Flexiro.Services
                     return response;
                 }
 
-                // Update the shop's admin status
-                existingShop.AdminStatus = newStatus;
-
-                // Update shop in the repository
-                _unitOfWork.Repository.Update(existingShop);
-                await _unitOfWork.Repository.CompleteAsync();
-
                 // Set successful response
                 response.Success = true;
-                response.Content = existingShop;
+                response.Content = updatedShop;
                 response.Title = "Shop Status Updated Successfully";
-                response.Description = $"Shop '{existingShop.ShopName}' status has been updated to '{newStatus}'.";
+                response.Description = $"Shop '{updatedShop.ShopName}' status has been updated to '{newStatus}'.";
             }
             catch (Exception ex)
             {
@@ -364,19 +313,18 @@ namespace Flexiro.Services
 
             return response;
         }
+
         public async Task<ResponseModel<ShopResponse>> GetShopByOwnerIdAsync(string ownerId)
         {
             var response = new ResponseModel<ShopResponse>();
 
             try
             {
-                // Retrieve the shop by owner ID from the repository
-                var shop = await _unitOfWork.Repository
-                    .GetQueryable<Shop>(s => s.OwnerId == ownerId)
-                    .FirstOrDefaultAsync();
+                // Attempt to retrieve the shop using the repository method
+                var shop = await _shopRepository.GetShopByOwnerIdAsync(ownerId);
 
                 // Check if the shop exists
-                if (shop == null)
+                if (shop == null!)
                 {
                     response.Success = false;
                     response.Title = "Shop Not Found";
@@ -405,41 +353,70 @@ namespace Flexiro.Services
             return response;
         }
 
-        public async Task<ResponseModel<string>> ChangeShopStatusByAdminAsync(int shopId, ShopAdminStatus newStatus)
+        public async Task<ResponseModel<string>> ChangeShopStatusByAdminAsync(int shopId, int newstatus)
         {
             var response = new ResponseModel<string>();
-            var shop = await _unitOfWork.Repository.GetQueryable<Shop>(s => s.ShopId == shopId)
-                .FirstOrDefaultAsync();
-
-            if (shop == null)
-            {
-                response.Success = false;
-                response.Title = "Shop Not Found";
-                response.Description = $"No shop found with ID {shopId}.";
-                return response;
-            }
-
-            // Update the shop status
-            shop.AdminStatus = newStatus;
 
             try
             {
-                // Save changes
-                await _unitOfWork.Repository.UpdateAsync(shop);
-                await _unitOfWork.Repository.CompleteAsync();
+                // Attempt to update the shop status using the repository method
+                var updateSuccess = await _shopRepository.ChangeShopStatusAsync(shopId, newstatus);
 
+                if (!updateSuccess)
+                {
+                    response.Success = false;
+                    response.Title = "Shop Not Found";
+                    response.Description = $"No shop found with ID {shopId}.";
+                    return response;
+                }
+
+                // Set successful response
                 response.Success = true;
                 response.Title = "Shop Status Updated";
-                response.Description = $"Shop status successfully updated to {newStatus}.";
+                response.Description = $"Shop status successfully updated to {newstatus}.";
             }
             catch (Exception ex)
             {
-                // Handle any exceptions that occur during the update
+                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Updating Shop Status";
                 response.Description = "An error occurred while updating the shop status.";
                 response.ExceptionMessage = ex.Message;
             }
+
+            return response;
+        }
+
+        public async Task<ResponseModel<string>> ChangeShopSellerStatusAsync(ShopStatus newStatus)
+        {
+            var response = new ResponseModel<string>();
+
+            try
+            {
+                // Update the shop's seller status
+                var isUpdated = await _shopRepository.UpdateShopSellerStatusAsync(newStatus);
+
+                if (!isUpdated)
+                {
+                    response.Success = false;
+                    response.Title = "Shop Not Found";
+                    response.Description = $"No shop with ID '{newStatus.ShopId}' was found.";
+                    return response;
+                }
+
+                response.Success = true;
+                response.Title = "Shop Status Updated Successfully";
+                response.Description = $"The shop with ID '{newStatus.ShopId}' is now '{newStatus}'.";
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+
+                response.Title = "Error Updating Shop Status";
+                response.Description = "An error occurred while updating the shop's seller status.";
+                response.ExceptionMessage = ex.Message;
+            }
+
             return response;
         }
     }
