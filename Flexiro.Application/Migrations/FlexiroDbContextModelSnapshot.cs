@@ -442,7 +442,7 @@ namespace Flexiro.Application.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("Weight")
-                        .HasColumnType("decimal(18,2)");
+                        .HasColumnType("decimal(18,4)");
 
                     b.HasKey("ProductId");
 

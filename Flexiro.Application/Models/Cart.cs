@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Flexiro.Application.Models
 {
@@ -11,13 +12,19 @@ namespace Flexiro.Application.Models
         public string UserId { get; set; }
         public virtual ApplicationUser User { get; set; }
 
-        // Total price of items before discounts and shipping
+        [Column(TypeName = "decimal(18,2)")]
         public decimal ItemsTotal { get; set; } = 0;
 
+        [Column(TypeName = "decimal(18,2)")]
         public decimal? TotalDiscount { get; set; } = 0;
+
+        [Column(TypeName = "decimal(18,2)")]
         public decimal? Tax { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
         public decimal? ShippingCost { get; set; } = 0;
 
+        [Column(TypeName = "decimal(18,2)")]
         public decimal TotalAmount { get; set; } = 0;
 
         [Required]

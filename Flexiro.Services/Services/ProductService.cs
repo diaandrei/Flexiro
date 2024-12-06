@@ -7,6 +7,7 @@ using Flexiro.Contracts.Responses;
 using Flexiro.Services.Repositories;
 using Flexiro.Services.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 
 namespace Flexiro.Services.Services
 {
@@ -18,7 +19,12 @@ namespace Flexiro.Services.Services
         private readonly IProductRepository _productRepository;
         private readonly IBlobStorageService _blobStorageService;
 
-        public ProductService(IUnitOfWork unitOfWork, IMapper mapper, IReviewService reviewService, IProductRepository productRepository, IBlobStorageService blobStorageService)
+        public ProductService(
+            IUnitOfWork unitOfWork,
+            IMapper mapper,
+            IReviewService reviewService,
+            IProductRepository productRepository,
+            IBlobStorageService blobStorageService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
@@ -33,11 +39,9 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Call repository method to create product
                 var product = await _productRepository.CreateProductAsync(productDto);
 
                 var imageUrls = new List<string>();
-
                 foreach (var imageFile in productDto.ProductImages)
                 {
                     if (imageFile.Length > 0)
@@ -50,21 +54,23 @@ namespace Flexiro.Services.Services
 
                 await UpdateProductImagePaths(product.ProductId, imageUrls);
 
-                // Map to response DTO
                 var productResponse = _mapper.Map<ProductResponseDto>(product);
 
                 response.Success = true;
                 response.Content = productResponse;
                 response.Title = "Product Created Successfully";
                 response.Description = $"Product '{product.ProductName}' has been added.";
+
+                Log.Information("Product created successfully: {ProductId}", product.ProductId);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Creating Product";
                 response.Description = "An error occurred while creating the product.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error creating product");
             }
 
             return response;
@@ -75,7 +81,6 @@ namespace Flexiro.Services.Services
             var response = new ResponseModel<List<string>>();
             try
             {
-                // Fetch category names
                 var categoryNames = await _productRepository.GetAllCategoryNamesAsync();
 
                 if (categoryNames == null! || !categoryNames.Any())
@@ -90,6 +95,8 @@ namespace Flexiro.Services.Services
                 response.Content = categoryNames;
                 response.Title = "Categories Retrieved Successfully";
                 response.Description = $"{categoryNames.Count} categories have been retrieved.";
+
+                Log.Information("Categories retrieved successfully");
             }
             catch (Exception ex)
             {
@@ -97,6 +104,8 @@ namespace Flexiro.Services.Services
                 response.Title = "Error Retrieving Categories";
                 response.Description = "An error occurred while retrieving categories.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error retrieving categories");
             }
 
             return response;
@@ -104,54 +113,45 @@ namespace Flexiro.Services.Services
 
         public async Task UpdateProductImagePaths(int productId, List<string> imagePaths)
         {
-            // Fetch the product including its images
             var product = await _unitOfWork.Repository
                 .GetQueryable<Product>(s => s.ProductId == productId)
-                .Include(p => p.ProductImages) // Ensure ProductImages are loaded
+                .Include(p => p.ProductImages)
                 .FirstOrDefaultAsync();
 
-            // Check if product exists
             if (product == null)
             {
                 throw new ArgumentException($"Product with ID {productId} not found.");
             }
 
-            // Initialize ProductImages collection if it's null
             if (product.ProductImages == null!)
             {
                 product.ProductImages = new List<ProductImage>();
             }
 
-            // Remove any extra images if there are more than imagePaths
             var currentImagesCount = product.ProductImages.Count;
             var extraImagesCount = currentImagesCount - imagePaths.Count;
 
             if (extraImagesCount > 0)
             {
-                // Remove excess images from the product
                 for (int i = 0; i < extraImagesCount; i++)
                 {
                     var imageToRemove = product.ProductImages.Last();
-                    product.ProductImages.Remove(imageToRemove); // Remove the image
+                    product.ProductImages.Remove(imageToRemove);
                 }
             }
 
-            // Update or add the image paths
             for (int i = 0; i < imagePaths.Count; i++)
             {
                 if (i < product.ProductImages.Count)
                 {
-                    // Update existing image path
                     product.ProductImages.ElementAt(i).Path = imagePaths[i];
                 }
                 else
                 {
-                    // Add new image if there are more paths than images
                     product.ProductImages.Add(new ProductImage { Path = imagePaths[i] });
                 }
             }
 
-            // Save changes to the database
             _unitOfWork.Repository.Update(product);
             await _unitOfWork.Repository.CompleteAsync();
         }
@@ -162,7 +162,6 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Call repository function to update product
                 var updatedProduct = await _productRepository.UpdateProductAsync(productId, productDto);
 
                 if (updatedProduct == null!)
@@ -173,22 +172,23 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Map the updated product to response DTO
                 var productResponse = _mapper.Map<ProductResponseDto>(updatedProduct);
 
-                // Set successful response
                 response.Success = true;
                 response.Content = productResponse;
                 response.Title = "Product Updated Successfully";
                 response.Description = $"Product '{updatedProduct.ProductName}' has been updated.";
+
+                Log.Information("Product updated successfully: {ProductId}", productId);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Updating Product";
                 response.Description = "An error occurred while updating the product.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error updating product {ProductId}", productId);
             }
 
             return response;
@@ -198,20 +198,20 @@ namespace Flexiro.Services.Services
         {
             try
             {
-                // Call repository function to delete product
                 var deletionSuccessful = await _productRepository.DeleteProductAsync(productId);
 
                 if (!deletionSuccessful)
                 {
+                    Log.Information("No product found to delete: {ProductId}", productId);
                     return false;
                 }
-                else
-                {
-                    return true;
-                }
+
+                Log.Information("Product deleted successfully: {ProductId}", productId);
+                return true;
             }
             catch (Exception ex)
             {
+                Log.Error(ex, "Error deleting product {ProductId}", productId);
                 return false;
             }
         }
@@ -222,30 +222,19 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Retrieve products from the repository
                 var products = await _productRepository.GetAllProductsAsync(shopId);
 
-                // Categorize products by status and availability
                 var forSellProducts = products.Where(p => p.Status == ProductStatus.ForSell).ToList();
                 var draftProducts = products.Where(p => p.Status == ProductStatus.Draft).ToList();
+                var forSaleProducts = products.Where(p => p.Status == ProductStatus.ForSell && p.Availability == AvailabilityStatus.ForSale && p.DiscountPercentage != 0).ToList();
+                var notForSaleProducts = products.Where(p => p.Status == ProductStatus.ForSell && p.Availability == AvailabilityStatus.NotForSale && p.DiscountPercentage == 0).ToList();
 
-                var forSaleProducts = products
-                    .Where(p => p.Status == ProductStatus.ForSell && p.Availability == AvailabilityStatus.ForSale && p.DiscountPercentage != 0)
-                    .ToList();
-
-                var notForSaleProducts = products
-                    .Where(p => p.Status == ProductStatus.ForSell && p.Availability == AvailabilityStatus.NotForSale && p.DiscountPercentage == 0)
-                    .ToList();
-
-                // Generate responses for each category
                 var forSellProductResponses = await _productRepository.GetProductResponsesAsync(forSellProducts);
                 var draftProductResponses = await _productRepository.GetProductResponsesAsync(draftProducts);
                 var forSaleProductResponses = await _productRepository.GetProductResponsesAsync(forSaleProducts);
                 var notForSaleProductResponses = await _productRepository.GetProductResponsesAsync(notForSaleProducts);
 
-                // Set response content
                 response.Success = true;
-
                 response.Content = new ProductListsDto
                 {
                     ForSellProducts = forSellProductResponses,
@@ -255,6 +244,8 @@ namespace Flexiro.Services.Services
                 };
                 response.Title = "Products Retrieved Successfully";
                 response.Description = "Products retrieved based on status.";
+
+                Log.Information("All products retrieved for shop {ShopId}", shopId);
             }
             catch (Exception ex)
             {
@@ -262,6 +253,8 @@ namespace Flexiro.Services.Services
                 response.Title = "Error Retrieving Products";
                 response.Description = "An error occurred while retrieving the products.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error retrieving products for shop {ShopId}", shopId);
             }
 
             return response;
@@ -273,10 +266,8 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Retrieve the product details from the repository
                 var productDetail = await _productRepository.GetProductDetailsByIdAsync(productId, userId);
 
-                // Check if the product details were found
                 if (productDetail == null!)
                 {
                     response.Success = false;
@@ -285,19 +276,21 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Set successful response
                 response.Success = true;
                 response.Content = productDetail;
                 response.Title = "Product Retrieved Successfully";
                 response.Description = $"Product '{productDetail.ProductName}' has been retrieved.";
+
+                Log.Information("Product details retrieved for product {ProductId}", productId);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Retrieving Product";
                 response.Description = "An error occurred while retrieving the product.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error retrieving product details for {ProductId}", productId);
             }
 
             return response;
@@ -309,10 +302,8 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Retrieve the products from the repository by shop ID
                 var products = await _productRepository.GetProductsByShopIdAsync(shopId, userId);
 
-                // Check if any products were found
                 if (products == null! || !products.Any())
                 {
                     response.Success = false;
@@ -321,20 +312,21 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Set successful response
                 response.Success = true;
                 response.Content = products;
                 response.Title = "Products Retrieved Successfully";
                 response.Description = $"Products for shop ID '{shopId}' have been retrieved.";
-            }
 
+                Log.Information("Products retrieved for shop {ShopId}", shopId);
+            }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Retrieving Products";
                 response.Description = "An error occurred while retrieving the products.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error retrieving products for shop {ShopId}", shopId);
             }
 
             return response;
@@ -346,10 +338,8 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Retrieve the products by category ID
                 var products = await _productRepository.GetProductsByCategoryIdAsync(categoryId);
 
-                // Check if any products were found
                 if (products == null! || !products.Any())
                 {
                     response.Success = false;
@@ -358,19 +348,21 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Set successful response
                 response.Success = true;
                 response.Content = products;
                 response.Title = "Products Retrieved Successfully";
                 response.Description = $"Products for category ID '{categoryId}' have been retrieved.";
+
+                Log.Information("Products retrieved for category {CategoryId}", categoryId);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Retrieving Products";
                 response.Description = "An error occurred while retrieving the products.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error retrieving products for category {CategoryId}", categoryId);
             }
 
             return response;
@@ -382,7 +374,6 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Ensure productName is not null or empty
                 if (string.IsNullOrWhiteSpace(productName))
                 {
                     response.Success = false;
@@ -391,10 +382,8 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Call repository to search products by name
                 var products = await _productRepository.SearchProductsByNameAsync(productName);
 
-                // Check if any products were found
                 if (products == null! || !products.Any())
                 {
                     response.Success = false;
@@ -403,24 +392,25 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Set successful response
                 response.Success = true;
                 response.Content = products;
                 response.Title = "Products Retrieved Successfully";
                 response.Description = $"Products matching '{productName}' have been retrieved.";
+
+                Log.Information("Products retrieved for search term '{ProductName}'", productName);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Searching Products";
                 response.Description = "An error occurred while searching for products.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error searching products by name '{ProductName}'", productName);
             }
 
             return response;
         }
-
 
         public async Task<ResponseModel<UserWishlistResponseDto>> AddProductToWishlistAsync(int productId, string userId, int shopId)
         {
@@ -428,7 +418,6 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Call the repository method to add the product to the wishlist
                 var wishlistItem = await _productRepository.AddProductToWishlistAsync(productId, userId, shopId);
 
                 if (wishlistItem == null!)
@@ -439,22 +428,23 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Map to response DTO
                 var wishlistResponse = _mapper.Map<UserWishlistResponseDto>(wishlistItem);
 
-                // Set successful response
                 response.Success = true;
                 response.Content = wishlistResponse;
                 response.Title = "Product Added to Wishlist";
                 response.Description = "The product has been successfully added to your wishlist.";
+
+                Log.Information("Product {ProductId} added to wishlist for user {UserId}", productId, userId);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Adding to Wishlist";
                 response.Description = "An error occurred while adding the product to your wishlist.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error adding product {ProductId} to wishlist for user {UserId}", productId, userId);
             }
 
             return response;
@@ -466,7 +456,6 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Call the repository method to remove the product from the wishlist
                 var removed = await _productRepository.RemoveProductFromWishlistAsync(productId, userId, shopId);
 
                 if (!removed)
@@ -477,18 +466,20 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Set successful response
                 response.Success = true;
                 response.Title = "Product Removed from Wishlist";
                 response.Description = "The product has been successfully removed from your wishlist.";
+
+                Log.Information("Product {ProductId} removed from wishlist for user {UserId}", productId, userId);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Removing from Wishlist";
                 response.Description = "An error occurred while removing the product from your wishlist.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error removing product {ProductId} from wishlist for user {UserId}", productId, userId);
             }
 
             return response;
@@ -498,7 +489,6 @@ namespace Flexiro.Services.Services
         {
             var response = new ResponseModel<string>();
 
-            // Call the repository function to change the product status
             var updatedProduct = await _productRepository.ChangeProductStatusAsync(productId, newStatus);
 
             if (updatedProduct == null!)
@@ -506,13 +496,15 @@ namespace Flexiro.Services.Services
                 response.Success = false;
                 response.Title = "Error Updating Product Status";
                 response.Description = "An error occurred while updating the product status.";
+                Log.Information("No product found to update status: {ProductId}", productId);
                 return response;
             }
 
-            // Set successful response
             response.Success = true;
             response.Title = "Product Status Updated";
             response.Description = $"Product status successfully updated to {newStatus}.";
+            Log.Information("Product {ProductId} status updated to {NewStatus}", productId, newStatus);
+
             return response;
         }
 
@@ -522,10 +514,8 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Retrieve the sale products from the repository
                 var saleProductDtos = await _productRepository.GetSaleProductsAsync();
 
-                // Check if any sale products were found
                 if (saleProductDtos == null! || !saleProductDtos.Any())
                 {
                     response.Success = false;
@@ -534,19 +524,21 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Set successful response
                 response.Success = true;
                 response.Content = saleProductDtos;
                 response.Title = "Sale Products Retrieved Successfully";
                 response.Description = $"{saleProductDtos.Count} sale products have been retrieved.";
+
+                Log.Information("Sale products retrieved successfully");
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Retrieving Sale Products";
                 response.Description = "An error occurred while retrieving the sale products.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error retrieving sale products");
             }
 
             return response;
@@ -569,6 +561,7 @@ namespace Flexiro.Services.Services
                 })
                 .ToListAsync();
 
+            Log.Information("Top-rated affordable products retrieved");
             return topRatedAffordableProducts;
         }
     }

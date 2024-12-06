@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Flexiro.Application.Models
 {
@@ -22,18 +23,19 @@ namespace Flexiro.Application.Models
         public int Quantity { get; set; } = 1;
 
         [Required]
+        [Column(TypeName = "decimal(18,2)")]
         public decimal PricePerUnit { get; set; }
 
+        [Column(TypeName = "decimal(18,2)")]
         public decimal? DiscountAmount { get; set; } = 0;
 
-        // Total price for this item in the cart (PricePerUnit * Quantity - DiscountAmount)
         [Required]
+        [Column(TypeName = "decimal(18,2)")]
         public decimal TotalPrice { get; set; }
 
-        // Timestamps
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
         public DateTime? UpdatedAt { get; set; }
     }
-
 }
