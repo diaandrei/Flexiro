@@ -10,13 +10,22 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Swashbuckle.AspNetCore.SwaggerGen;
+using Serilog;
 using System.Text;
 using System.Text.Json;
 using Flexiro.Identity;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
+
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(config)
+    .Enrich.FromLogContext()
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+
 var connectionString = config.GetConnectionString("Database");
 
 builder.Services.AddDbContext<FlexiroDbContext>(options =>
@@ -54,7 +63,6 @@ builder.Services.ApplyEasyRepository<FlexiroDbContext>();
 builder.Services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwagger>();
 builder.Services.AddControllers();
 
-
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddControllers()
@@ -64,10 +72,8 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 
-
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
