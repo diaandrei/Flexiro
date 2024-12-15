@@ -3,6 +3,8 @@
     public class ProductResponse
     {
         public int ProductId { get; set; }
+        public int ShopId { get; set; }
+        public bool IsInWishlist { get; set; }
         public required string ProductName { get; set; }
         public required string Description { get; set; }
         public decimal PricePerItem { get; set; }

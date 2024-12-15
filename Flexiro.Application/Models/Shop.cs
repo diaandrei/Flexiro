@@ -21,18 +21,19 @@ namespace Flexiro.Application.Models
         public string OpeningTime { get; set; }
         public DateTime CreatedAt { get; set; }
         public string ClosingTime { get; set; }
+        public string OpeningDay { get; set; }
+        public string ClosingDay { get; set; }
 
     }
     public enum ShopAdminStatus
     {
-        Pending,
-        Active,
-        Inactive
+        Active = 1,
+        Inactive = 2,
+        Pending = 0
     }
     public enum ShopSellerStatus
     {
-        Open,
-        Closed
+        Open = 0,
+        Closed = 1
     }
-
 }

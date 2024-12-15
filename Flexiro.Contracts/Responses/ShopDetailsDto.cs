@@ -9,9 +9,10 @@ namespace Flexiro.Contracts.Responses
         public required string ShopName { get; set; }
         public required string OwnerName { get; set; }
         public required string ShopDescription { get; set; }
-
         public ShopAdminStatus AdminStatus { get; set; }
         public decimal TotalEarnings { get; set; }
         public int TotalOrders { get; set; }
+        public double AverageRating { get; set; }
+        public string RatingScore { get; set; }
     }
 }

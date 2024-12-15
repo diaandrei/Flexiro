@@ -17,7 +17,7 @@ namespace Flexiro.Application.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.10")
+                .HasAnnotation("ProductVersion", "8.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -115,29 +115,6 @@ namespace Flexiro.Application.Migrations
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = "7efcac2e-3363-4cb1-8a68-5b0f30def307",
-                            AccessFailedCount = 0,
-                            ConcurrencyStamp = "dd5452cf-2e93-40db-8eb1-8fcb263a66db",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Email = "admin@flexiro.com",
-                            EmailConfirmed = true,
-                            FirstName = "Admin",
-                            IsAdmin = true,
-                            IsSeller = false,
-                            LastName = "Admin",
-                            LockoutEnabled = false,
-                            NormalizedEmail = "ADMIN@FLEXIRO.COM",
-                            NormalizedUserName = "ADMIN@FLEXIRO.COM",
-                            PasswordHash = "AQAAAAIAAYagAAAAECvFPhq6UqXqIaru/QhRcNszA583RQQi8/QGG92GMs9dp71daW7LxpxEMzYDQe4zvg==",
-                            PhoneNumberConfirmed = false,
-                            SecurityStamp = "228233ba-f742-4681-b1c3-c27d75b58228",
-                            TwoFactorEnabled = false,
-                            UserName = "admin@flexiro.com"
-                        });
                 });
 
             modelBuilder.Entity("Flexiro.Application.Models.Cart", b =>
@@ -461,11 +438,11 @@ namespace Flexiro.Application.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<decimal>("Weight")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int?>("totalsold")
+                    b.Property<int?>("TotalSold")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("Weight")
+                        .HasColumnType("decimal(18,4)");
 
                     b.HasKey("ProductId");
 
@@ -604,6 +581,10 @@ namespace Flexiro.Application.Migrations
                     b.Property<int>("AdminStatus")
                         .HasColumnType("int");
 
+                    b.Property<string>("ClosingDay")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("ClosingTime")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -616,6 +597,10 @@ namespace Flexiro.Application.Migrations
 
                     b.Property<DateTime>("OpeningDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("OpeningDay")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("OpeningTime")
                         .IsRequired()
@@ -713,26 +698,6 @@ namespace Flexiro.Application.Migrations
                         .HasFilter("[NormalizedName] IS NOT NULL");
 
                     b.ToTable("AspNetRoles", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = "1",
-                            Name = "Admin",
-                            NormalizedName = "ADMIN"
-                        },
-                        new
-                        {
-                            Id = "2",
-                            Name = "Seller",
-                            NormalizedName = "SELLER"
-                        },
-                        new
-                        {
-                            Id = "3",
-                            Name = "Customer",
-                            NormalizedName = "CUSTOMER"
-                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -820,13 +785,6 @@ namespace Flexiro.Application.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("AspNetUserRoles", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            UserId = "7efcac2e-3363-4cb1-8a68-5b0f30def307",
-                            RoleId = "1"
-                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>

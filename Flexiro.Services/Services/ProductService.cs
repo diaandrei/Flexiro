@@ -4,8 +4,10 @@ using Flexiro.Application.DTOs;
 using Flexiro.Application.Models;
 using Flexiro.Contracts.Requests;
 using Flexiro.Contracts.Responses;
+using Flexiro.Services.Repositories;
 using Flexiro.Services.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 
 namespace Flexiro.Services.Services
 {
@@ -13,11 +15,22 @@ namespace Flexiro.Services.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IReviewService _reviewService;
+        private readonly IProductRepository _productRepository;
+        private readonly IBlobStorageService _blobStorageService;
 
-        public ProductService(IUnitOfWork unitOfWork, IMapper mapper)
+        public ProductService(
+            IUnitOfWork unitOfWork,
+            IMapper mapper,
+            IReviewService reviewService,
+            IProductRepository productRepository,
+            IBlobStorageService blobStorageService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _reviewService = reviewService;
+            _productRepository = productRepository;
+            _blobStorageService = blobStorageService;
         }
 
         public async Task<ResponseModel<ProductResponseDto>> CreateProductAsync(ProductCreateDto productDto)
@@ -26,46 +39,73 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Map DTO to Product entity
-                var product = _mapper.Map<Product>(productDto);
+                var product = await _productRepository.CreateProductAsync(productDto);
 
-                // Add product to the repository
-                await _unitOfWork.Repository.AddAsync(product);
-                await _unitOfWork.Repository.CompleteAsync();
-
-                var productImages = new List<ProductImage>();
-
+                var imageUrls = new List<string>();
                 foreach (var imageFile in productDto.ProductImages)
                 {
                     if (imageFile.Length > 0)
                     {
-                        var productImage = new ProductImage
-                        {
-                            ProductId = product.ProductId,
-                            Path = "",
-                            CreatedAt = DateTime.UtcNow,
-                        };
-                        productImages.Add(productImage);
+                        await using var stream = imageFile.OpenReadStream();
+                        var imageUrl = await _blobStorageService.UploadImageAsync(stream, imageFile.FileName);
+                        imageUrls.Add(imageUrl);
                     }
                 }
-                product.ProductImages = productImages;
-                _unitOfWork.Repository.Update(product);
-                await _unitOfWork.Repository.CompleteAsync();
+
+                await UpdateProductImagePaths(product.ProductId, imageUrls);
+
                 var productResponse = _mapper.Map<ProductResponseDto>(product);
 
-                // Set successful response
                 response.Success = true;
                 response.Content = productResponse;
                 response.Title = "Product Created Successfully";
                 response.Description = $"Product '{product.ProductName}' has been added.";
+
+                Log.Information("Product created successfully: {ProductId}", product.ProductId);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Creating Product";
                 response.Description = "An error occurred while creating the product.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error creating product");
+            }
+
+            return response;
+        }
+
+        public async Task<ResponseModel<List<string>>> GetAllCategoryNamesAsync()
+        {
+            var response = new ResponseModel<List<string>>();
+            try
+            {
+                var categoryNames = await _productRepository.GetAllCategoryNamesAsync();
+
+                if (categoryNames == null! || !categoryNames.Any())
+                {
+                    response.Success = false;
+                    response.Title = "No Categories Found";
+                    response.Description = "No categories exist in the database.";
+                    return response;
+                }
+
+                response.Success = true;
+                response.Content = categoryNames;
+                response.Title = "Categories Retrieved Successfully";
+                response.Description = $"{categoryNames.Count} categories have been retrieved.";
+
+                Log.Information("Categories retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Title = "Error Retrieving Categories";
+                response.Description = "An error occurred while retrieving categories.";
+                response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error retrieving categories");
             }
 
             return response;
@@ -75,34 +115,56 @@ namespace Flexiro.Services.Services
         {
             var product = await _unitOfWork.Repository
                 .GetQueryable<Product>(s => s.ProductId == productId)
+                .Include(p => p.ProductImages)
                 .FirstOrDefaultAsync();
 
-            if (product != null)
+            if (product == null)
             {
-                // Update each product image path
-                for (var i = 0; i < imagePaths.Count; i++)
+                throw new ArgumentException($"Product with ID {productId} not found.");
+            }
+
+            if (product.ProductImages == null!)
+            {
+                product.ProductImages = new List<ProductImage>();
+            }
+
+            var currentImagesCount = product.ProductImages.Count;
+            var extraImagesCount = currentImagesCount - imagePaths.Count;
+
+            if (extraImagesCount > 0)
+            {
+                for (int i = 0; i < extraImagesCount; i++)
+                {
+                    var imageToRemove = product.ProductImages.Last();
+                    product.ProductImages.Remove(imageToRemove);
+                }
+            }
+
+            for (int i = 0; i < imagePaths.Count; i++)
+            {
+                if (i < product.ProductImages.Count)
                 {
                     product.ProductImages.ElementAt(i).Path = imagePaths[i];
                 }
-
-                _unitOfWork.Repository.Update(product);
-                await _unitOfWork.Repository.CompleteAsync();
+                else
+                {
+                    product.ProductImages.Add(new ProductImage { Path = imagePaths[i] });
+                }
             }
+
+            _unitOfWork.Repository.Update(product);
+            await _unitOfWork.Repository.CompleteAsync();
         }
 
-        public async Task<ResponseModel<ProductResponseDto>> UpdateProductAsync(int productId,
-            ProductUpdateDto productDto)
+        public async Task<ResponseModel<ProductResponseDto>> UpdateProductAsync(int productId, ProductUpdateDto productDto)
         {
             var response = new ResponseModel<ProductResponseDto>();
 
             try
             {
-                // Retrieve the existing product from the repository
-                var product = await _unitOfWork.Repository
-                    .GetQueryable<Product>(s => s.ProductId == productId)
-                    .FirstOrDefaultAsync();
+                var updatedProduct = await _productRepository.UpdateProductAsync(productId, productDto);
 
-                if (product == null)
+                if (updatedProduct == null!)
                 {
                     response.Success = false;
                     response.Title = "Product Not Found";
@@ -110,49 +172,23 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Map the updated fields from the DTO to the existing product
-                _mapper.Map(productDto, product);
+                var productResponse = _mapper.Map<ProductResponseDto>(updatedProduct);
 
-                // Update the product in the repository
-                _unitOfWork.Repository.Update(product);
-                await _unitOfWork.Repository.CompleteAsync();
-
-                var productImages = new List<ProductImage>();
-
-                foreach (var imageFile in productDto.ProductImages!)
-                {
-                    if (imageFile.Length > 0)
-                    {
-                        var productImage = new ProductImage
-                        {
-                            ProductId = product.ProductId,
-                            Path = "",
-                            CreatedAt = DateTime.UtcNow,
-                        };
-                        productImages.Add(productImage);
-                    }
-                }
-
-                product.ProductImages = productImages;
-                _unitOfWork.Repository.Update(product);
-                await _unitOfWork.Repository.CompleteAsync();
-
-                // Map the updated product to response DTO
-                var productResponse = _mapper.Map<ProductResponseDto>(product);
-
-                // Set successful response
                 response.Success = true;
                 response.Content = productResponse;
                 response.Title = "Product Updated Successfully";
-                response.Description = $"Product '{product.ProductName}' has been updated.";
+                response.Description = $"Product '{updatedProduct.ProductName}' has been updated.";
+
+                Log.Information("Product updated successfully: {ProductId}", productId);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Updating Product";
                 response.Description = "An error occurred while updating the product.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error updating product {ProductId}", productId);
             }
 
             return response;
@@ -162,161 +198,77 @@ namespace Flexiro.Services.Services
         {
             try
             {
-                // Retrieve the existing product from the repository
-                var product = await _unitOfWork.Repository
-                    .GetQueryable<Product>(s => s.ProductId == productId)
-                    .FirstOrDefaultAsync();
+                var deletionSuccessful = await _productRepository.DeleteProductAsync(productId);
 
-                // Check if product exists
-                if (product is null)
+                if (!deletionSuccessful)
                 {
+                    Log.Information("No product found to delete: {ProductId}", productId);
                     return false;
                 }
 
-                // Delete the product from the repository
-                _unitOfWork.Repository.HardDelete(product);
-                await _unitOfWork.Repository.CompleteAsync();
-
-                return true; // Product successfully deleted
+                Log.Information("Product deleted successfully: {ProductId}", productId);
+                return true;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Log.Error(ex, "Error deleting product {ProductId}", productId);
                 return false;
             }
         }
 
-        public async Task<ResponseModel<ProductListsDto>> GetAllProductsAsync()
+        public async Task<ResponseModel<ProductListsDto>> GetAllProductsAsync(int shopId)
         {
             var response = new ResponseModel<ProductListsDto>();
 
             try
             {
-                // Retrieve all products from the repository
-                var products = await _unitOfWork.Repository
-                    .GetQueryable<Product>()
-                    .ToListAsync();
+                var products = await _productRepository.GetAllProductsAsync(shopId);
 
-                var allProducts = products;
                 var forSellProducts = products.Where(p => p.Status == ProductStatus.ForSell).ToList();
                 var draftProducts = products.Where(p => p.Status == ProductStatus.Draft).ToList();
-                var ForSaleProducts = products
-                    .Where(p => p.Status == ProductStatus.ForSell && p.Availability == AvailabilityStatus.ForSale)
-                    .ToList();
+                var forSaleProducts = products.Where(p => p.Status == ProductStatus.ForSell && p.Availability == AvailabilityStatus.ForSale && p.DiscountPercentage != 0).ToList();
+                var notForSaleProducts = products.Where(p => p.Status == ProductStatus.ForSell && p.Availability == AvailabilityStatus.NotForSale && p.DiscountPercentage == 0).ToList();
 
-                var notForSaleProducts = products
-                    .Where(p => p.Status == ProductStatus.ForSell && p.Availability == AvailabilityStatus.NotForSale)
-                    .ToList();
+                var forSellProductResponses = await _productRepository.GetProductResponsesAsync(forSellProducts);
+                var draftProductResponses = await _productRepository.GetProductResponsesAsync(draftProducts);
+                var forSaleProductResponses = await _productRepository.GetProductResponsesAsync(forSaleProducts);
+                var notForSaleProductResponses = await _productRepository.GetProductResponsesAsync(notForSaleProducts);
 
-                var forSellProductResponses = forSellProducts.Select(p => new ProductResponseDto
-                {
-                    ProductId = p.ProductId,
-                    ProductName = p.ProductName,
-                    Description = p.Description,
-                    PricePerItem = p.PricePerItem,
-                    ShopId = p.ShopId,
-                    CategoryId = p.CategoryId,
-                    Weight = p.Weight,
-                    ProductCondition = p.ProductCondition,
-                    ImportedItem = p.ImportedItem,
-                    StockQuantity = p.StockQuantity,
-                    SKU = p.SKU,
-                    Status = p.Status,
-                    Tags = p.Tags.ToList()
-                }).ToList();
-
-                var draftProductResponses = draftProducts.Select(p => new ProductResponseDto
-                {
-                    ProductId = p.ProductId,
-                    ProductName = p.ProductName,
-                    Description = p.Description,
-                    PricePerItem = p.PricePerItem,
-                    ShopId = p.ShopId,
-                    CategoryId = p.CategoryId,
-                    Weight = p.Weight,
-                    ProductCondition = p.ProductCondition,
-                    ImportedItem = p.ImportedItem,
-                    StockQuantity = p.StockQuantity,
-                    SKU = p.SKU,
-                    Status = p.Status,
-                    Tags = p.Tags.ToList()
-                }).ToList();
-
-                var forSaleProductResponses = ForSaleProducts.Select(p => new ProductResponseDto
-                {
-                    ProductId = p.ProductId,
-                    ProductName = p.ProductName,
-                    Description = p.Description,
-                    PricePerItem = p.PricePerItem,
-                    ShopId = p.ShopId,
-                    CategoryId = p.CategoryId,
-                    Weight = p.Weight,
-                    ProductCondition = p.ProductCondition,
-                    ImportedItem = p.ImportedItem,
-                    StockQuantity = p.StockQuantity,
-                    SKU = p.SKU,
-                    Status = p.Status,
-                    Tags = p.Tags.ToList()
-                }).ToList();
-
-                var notforSaleProductResponses = notForSaleProducts.Select(p => new ProductResponseDto
-                {
-                    ProductId = p.ProductId,
-                    ProductName = p.ProductName,
-                    Description = p.Description,
-                    PricePerItem = p.PricePerItem,
-                    ShopId = p.ShopId,
-                    CategoryId = p.CategoryId,
-                    Weight = p.Weight,
-                    ProductCondition = p.ProductCondition,
-                    ImportedItem = p.ImportedItem,
-                    StockQuantity = p.StockQuantity,
-                    SKU = p.SKU,
-                    Status = p.Status,
-                    Tags = p.Tags.ToList()
-                }).ToList();
-
-                // Assign lists to the response model
                 response.Success = true;
                 response.Content = new ProductListsDto
                 {
                     ForSellProducts = forSellProductResponses,
                     DraftProducts = draftProductResponses,
                     ForSaleProducts = forSaleProductResponses,
-                    NotForSellProducts = notforSaleProductResponses
+                    NotForSaleProducts = notForSaleProductResponses
                 };
                 response.Title = "Products Retrieved Successfully";
                 response.Description = "Products retrieved based on status.";
+
+                Log.Information("All products retrieved for shop {ShopId}", shopId);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Retrieving Products";
                 response.Description = "An error occurred while retrieving the products.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error retrieving products for shop {ShopId}", shopId);
             }
 
             return response;
         }
 
-        public async Task<ResponseModel<ProductDetailResponseDto>> GetProductDetailsByIdAsync(int productId,
-            string baseUrl)
+        public async Task<ResponseModel<ProductDetailResponseDto>> GetProductDetailsByIdAsync(int productId, string userId)
         {
             var response = new ResponseModel<ProductDetailResponseDto>();
 
             try
             {
-                // Retrieve the product from the repository by ID
-                var product = await _unitOfWork.Repository
-                    .GetQueryable<Product>(p => p.ProductId == productId && p.Status == ProductStatus.ForSell)
-                    .Include(p => p.ProductImages)
-                    .Include(p => p.Reviews)
-                    .ThenInclude(r => r.User)
-                    .Include(p => p.Category)
-                    .FirstOrDefaultAsync();
+                var productDetail = await _productRepository.GetProductDetailsByIdAsync(productId, userId);
 
-                // Check if the product exists
-                if (product is null)
+                if (productDetail == null!)
                 {
                     response.Success = false;
                     response.Title = "Product Not Found";
@@ -324,70 +276,35 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                var averageRating = product.Reviews.Any() ? product.Reviews.Average(r => r.Rating ?? 0) : 0;
-                var totalReviews = product.Reviews.Count;
-                var finalPrice = product.DiscountPercentage.HasValue
-                    ? product.PricePerItem - (product.PricePerItem * (product.DiscountPercentage.Value / 100))
-                    : product.PricePerItem;
-
-                // Map the retrieved product to response DTO
-                var productDetail = new ProductDetailResponseDto
-                {
-                    ProductId = product.ProductId,
-                    ProductName = product.ProductName,
-                    Description = product.Description!,
-                    PricePerItem = finalPrice,
-                    MainImage = product.ProductImages?.FirstOrDefault() != null
-                        ? $"{baseUrl}{product.ProductImages.First().Path}"
-                        : string.Empty,
-                    ImageUrls = product.ProductImages?.Select(img => $"{baseUrl}{img.Path}").ToList() ??
-                                new List<string>(),
-                    AverageRating = averageRating,
-                    TotalReviews = totalReviews,
-                    TotalSold = product.totalsold ?? 0,
-                    CategoryName = product.Category?.Name!,
-                    Reviews = product.Reviews.Select(review => new ReviewResponseDto
-                    {
-                        UserName = review.User.UserName ?? "Anonymous",
-                        Rating = review.Rating ?? 0,
-                        Comment = review.Comment ?? "No comment provided."
-                    }).ToList()
-                };
-
-                // Set successful response
                 response.Success = true;
                 response.Content = productDetail;
                 response.Title = "Product Retrieved Successfully";
-                response.Description = $"Product '{product.ProductName}' has been retrieved.";
+                response.Description = $"Product '{productDetail.ProductName}' has been retrieved.";
+
+                Log.Information("Product details retrieved for product {ProductId}", productId);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Retrieving Product";
                 response.Description = "An error occurred while retrieving the product.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error retrieving product details for {ProductId}", productId);
             }
 
             return response;
         }
 
-        public async Task<ResponseModel<IEnumerable<ProductResponse>>> GetProductsByShopIdAsync(int shopId,
-            string baseUrl)
+        public async Task<ResponseModel<IEnumerable<ProductResponse>>> GetProductsByShopIdAsync(int shopId, string userId)
         {
             var response = new ResponseModel<IEnumerable<ProductResponse>>();
+
             try
             {
-                // Retrieve the products from the repository by shop ID
-                var products = await _unitOfWork.Repository
-                    .GetQueryable<Product>(p => p.ShopId == shopId && p.Status == ProductStatus.ForSell)
-                    .Include(p => p.ProductImages)
-                    .Include(p => p.Reviews)
-                    .Include(p => p.Category)
-                    .ToListAsync();
+                var products = await _productRepository.GetProductsByShopIdAsync(shopId, userId);
 
-                // Check if any products were found
-                if (products?.Any() != true)
+                if (products == null! || !products.Any())
                 {
                     response.Success = false;
                     response.Title = "No Products Found";
@@ -395,43 +312,21 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                var productResponses = products.Select(product => new ProductResponse
-                {
-                    ProductId = product.ProductId,
-                    ProductName = product.ProductName,
-                    Description = product.Description!,
-                    PricePerItem = product.PricePerItem,
-                    DiscountedPrice = (product.DiscountPercentage != 0
-                        ? product.PricePerItem - (product.PricePerItem * (product.DiscountPercentage!.Value / 100))
-                        : 0),
-                    FinalPrice = product.DiscountPercentage != 0
-                        ? (decimal)(product.PricePerItem -
-                                    (product.PricePerItem * (product.DiscountPercentage.Value / 100)))
-                        : product.PricePerItem,
-                    MainImage = product.ProductImages?.FirstOrDefault() != null
-                        ? $"{baseUrl}{product.ProductImages.First().Path}"
-                        : string.Empty,
-                    ImageUrls = product.ProductImages?.Select(img => $"{baseUrl}{img.Path}").ToList() ??
-                                new List<string>(),
-                    TotalSold = product.totalsold ?? 0,
-                    AverageRating = product.Reviews.Any() ? product.Reviews.Average(r => r.Rating ?? 0) : 0,
-                    TotalReviews = product.Reviews.Count,
-                    CategoryName = product.Category?.Name!
-                }).ToList();
-
-                // Set successful response
                 response.Success = true;
-                response.Content = productResponses;
+                response.Content = products;
                 response.Title = "Products Retrieved Successfully";
                 response.Description = $"Products for shop ID '{shopId}' have been retrieved.";
+
+                Log.Information("Products retrieved for shop {ShopId}", shopId);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Retrieving Products";
                 response.Description = "An error occurred while retrieving the products.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error retrieving products for shop {ShopId}", shopId);
             }
 
             return response;
@@ -443,13 +338,9 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Retrieve the products by category ID
-                var products = await _unitOfWork.Repository
-                    .GetQueryable<Product>(s => s.CategoryId == categoryId)
-                    .ToListAsync();
+                var products = await _productRepository.GetProductsByCategoryIdAsync(categoryId);
 
-                // Check if any products were found
-                if (products == null || !products.Any())
+                if (products == null! || !products.Any())
                 {
                     response.Success = false;
                     response.Title = "No Products Found";
@@ -457,22 +348,21 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Map the retrieved products to response DTOs
-                var productResponses = _mapper.Map<IEnumerable<ProductResponseDto>>(products);
-
-                // Set successful response
                 response.Success = true;
-                response.Content = productResponses;
+                response.Content = products;
                 response.Title = "Products Retrieved Successfully";
                 response.Description = $"Products for category ID '{categoryId}' have been retrieved.";
+
+                Log.Information("Products retrieved for category {CategoryId}", categoryId);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Retrieving Products";
                 response.Description = "An error occurred while retrieving the products.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error retrieving products for category {CategoryId}", categoryId);
             }
 
             return response;
@@ -484,7 +374,6 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Ensure productName is not null or empty
                 if (string.IsNullOrWhiteSpace(productName))
                 {
                     response.Success = false;
@@ -493,14 +382,9 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Retrieve products by name
-                var products = await _unitOfWork.Repository
-                    .GetQueryable<Product>(s => s.ProductName.Contains(productName))
-                    .Include(p => p.ProductImages)
-                    .ToListAsync();
+                var products = await _productRepository.SearchProductsByNameAsync(productName);
 
-                // Check if any products were found
-                if (products == null || !products.Any())
+                if (products == null! || !products.Any())
                 {
                     response.Success = false;
                     response.Title = "No Products Found";
@@ -508,129 +392,118 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Map the retrieved products to response DTOs
-                var productResponses = _mapper.Map<IEnumerable<ProductResponseDto>>(products);
-
-                // Set successful response
                 response.Success = true;
-                response.Content = productResponses;
+                response.Content = products;
                 response.Title = "Products Retrieved Successfully";
                 response.Description = $"Products matching '{productName}' have been retrieved.";
+
+                Log.Information("Products retrieved for search term '{ProductName}'", productName);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Searching Products";
                 response.Description = "An error occurred while searching for products.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error searching products by name '{ProductName}'", productName);
             }
 
             return response;
         }
 
-        public async Task<ResponseModel<UserWishlistResponseDto>> AddProductToWishlistAsync(int productId,
-            string userId, int shopId)
+        public async Task<ResponseModel<UserWishlistResponseDto>> AddProductToWishlistAsync(int productId, string userId, int shopId)
         {
             var response = new ResponseModel<UserWishlistResponseDto>();
 
             try
             {
-                // Check if the product exists
-                var product = await _unitOfWork.Repository
-                    .GetQueryable<Product>(p => p.ProductId == productId)
-                    .FirstOrDefaultAsync();
+                var wishlistItem = await _productRepository.AddProductToWishlistAsync(productId, userId, shopId);
 
-                if (product == null)
+                if (wishlistItem == null!)
                 {
                     response.Success = false;
-                    response.Title = "Product Not Found";
-                    response.Description = "The specified product does not exist.";
+                    response.Title = "Error Adding to Wishlist";
+                    response.Description = "An error occurred while adding the product to your wishlist.";
                     return response;
                 }
 
-                // Check if the wishlist item already exists for this user and product
-                var existingWishlistItem = await _unitOfWork.Repository
-                    .GetQueryable<UserWishlist>(w =>
-                        w.ProductId == productId && w.UserId == userId && w.ShopId == shopId)
-                    .FirstOrDefaultAsync();
-
-                if (existingWishlistItem != null)
-                {
-                    response.Success = false;
-                    response.Title = "Already in Wishlist";
-                    response.Description = "This product is already in your wishlist.";
-                    return response;
-                }
-
-                // Create new wishlist item
-                var wishlistItem = new UserWishlist
-                {
-                    ProductId = productId,
-                    UserId = userId,
-                    ShopId = shopId,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                // Add the new wishlist item to the repository
-                await _unitOfWork.Repository.AddAsync(wishlistItem);
-                await _unitOfWork.Repository.CompleteAsync();
-
-                // Map to response DTO
                 var wishlistResponse = _mapper.Map<UserWishlistResponseDto>(wishlistItem);
 
-                // Set successful response
                 response.Success = true;
                 response.Content = wishlistResponse;
                 response.Title = "Product Added to Wishlist";
                 response.Description = "The product has been successfully added to your wishlist.";
+
+                Log.Information("Product {ProductId} added to wishlist for user {UserId}", productId, userId);
             }
             catch (Exception ex)
             {
-                // Handle exceptions and set failure response
                 response.Success = false;
                 response.Title = "Error Adding to Wishlist";
                 response.Description = "An error occurred while adding the product to your wishlist.";
                 response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error adding product {ProductId} to wishlist for user {UserId}", productId, userId);
             }
 
             return response;
         }
 
-
-        public async Task<ResponseModel<string>> ChangeProductStatusAsync(int productId, ProductStatus newStatus)
+        public async Task<ResponseModel<object>> RemoveProductFromWishlistAsync(int productId, string userId, int shopId)
         {
-            var response = new ResponseModel<string>();
-            var product = await _unitOfWork.Repository.GetQueryable<Product>(s => s.ProductId == productId)
-                .FirstOrDefaultAsync();
-
-            if (product == null)
-            {
-                response.Success = false;
-                response.Title = "Product Not Found";
-                response.Description = $"No shop found with ID {productId}.";
-                return response;
-            }
-
-            product.Status = newStatus;
+            var response = new ResponseModel<object>();
 
             try
             {
-                // Save changes
-                await _unitOfWork.Repository.UpdateAsync(product);
-                await _unitOfWork.Repository.CompleteAsync();
+                var removed = await _productRepository.RemoveProductFromWishlistAsync(productId, userId, shopId);
+
+                if (!removed)
+                {
+                    response.Success = false;
+                    response.Title = "Error Removing from Wishlist";
+                    response.Description = "An error occurred while removing the product from your wishlist.";
+                    return response;
+                }
 
                 response.Success = true;
-                response.Title = "Product Status Updated";
-                response.Description = $"Product status successfully updated to {newStatus}.";
+                response.Title = "Product Removed from Wishlist";
+                response.Description = "The product has been successfully removed from your wishlist.";
+
+                Log.Information("Product {ProductId} removed from wishlist for user {UserId}", productId, userId);
             }
             catch (Exception ex)
             {
                 response.Success = false;
+                response.Title = "Error Removing from Wishlist";
+                response.Description = "An error occurred while removing the product from your wishlist.";
+                response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error removing product {ProductId} from wishlist for user {UserId}", productId, userId);
+            }
+
+            return response;
+        }
+
+        public async Task<ResponseModel<string>> ChangeProductStatusAsync(int productId, int newStatus)
+        {
+            var response = new ResponseModel<string>();
+
+            var updatedProduct = await _productRepository.ChangeProductStatusAsync(productId, newStatus);
+
+            if (updatedProduct == null!)
+            {
+                response.Success = false;
                 response.Title = "Error Updating Product Status";
                 response.Description = "An error occurred while updating the product status.";
-                response.ExceptionMessage = ex.Message;
+                Log.Information("No product found to update status: {ProductId}", productId);
+                return response;
             }
+
+            response.Success = true;
+            response.Title = "Product Status Updated";
+            response.Description = $"Product status successfully updated to {newStatus}.";
+            Log.Information("Product {ProductId} status updated to {NewStatus}", productId, newStatus);
 
             return response;
         }
@@ -641,43 +514,37 @@ namespace Flexiro.Services.Services
 
             try
             {
-                var currentDate = DateTime.UtcNow;
-                var saleProducts = await _unitOfWork.Repository
-                    .GetQueryable<Product>(p => p.DiscountPercentage.HasValue &&
-                                                p.SaleStartDate <= currentDate &&
-                                                p.SaleEndDate >= currentDate)
-                    .Include(p => p.ProductImages)
-                    .ToListAsync();
+                var saleProductDtos = await _productRepository.GetSaleProductsAsync();
 
-                var saleProductDtos = saleProducts.Select(p => new ProductSaleResponseDto
+                if (saleProductDtos == null! || !saleProductDtos.Any())
                 {
-                    ProductId = p.ProductId,
-                    ProductName = p.ProductName,
-                    Description = p.Description,
-                    MainImage = p.ProductImages.FirstOrDefault()?.Path ?? string.Empty,
-                    OriginalPrice = p.PricePerItem,
-                    DiscountedPrice = p.PricePerItem - (p.PricePerItem * (p.DiscountPercentage.Value / 100)),
-                    DiscountPercentage = p.DiscountPercentage.Value,
-                    SaleEndDate = p.SaleEndDate.Value,
-                    StockQuantity = p.StockQuantity,
-                    TotalSold = p.totalsold ?? 0
-                }).ToList();
+                    response.Success = false;
+                    response.Title = "No Sale Products Found";
+                    response.Description = "No products are currently on sale.";
+                    return response;
+                }
 
                 response.Success = true;
-                response.Description = "Sale products retrieved successfully";
                 response.Content = saleProductDtos;
+                response.Title = "Sale Products Retrieved Successfully";
+                response.Description = $"{saleProductDtos.Count} sale products have been retrieved.";
+
+                Log.Information("Sale products retrieved successfully");
             }
             catch (Exception ex)
             {
                 response.Success = false;
-                response.Description = "Failed to retrieve sale products";
-                response.Content = null!;
+                response.Title = "Error Retrieving Sale Products";
+                response.Description = "An error occurred while retrieving the sale products.";
+                response.ExceptionMessage = ex.Message;
+
+                Log.Error(ex, "Error retrieving sale products");
             }
 
             return response;
         }
 
-        public async Task<List<ProductTopRatedDto>> GetTopRatedAffordableProductsAsync(string baseUrl)
+        public async Task<List<ProductTopRatedDto>> GetTopRatedAffordableProductsAsync()
         {
             var topRatedAffordableProducts = await _unitOfWork.Repository.GetQueryable<Product>()
                 .Where(p => p.Status == ProductStatus.ForSell)
@@ -688,12 +555,13 @@ namespace Flexiro.Services.Services
                 {
                     ProductId = p.ProductId,
                     ProductName = p.ProductName,
-                    Description = p.Description!,
+                    Description = p.Description,
                     PricePerItem = p.PricePerItem,
-                    ShopImage = $"{baseUrl}{p.Shop.ShopLogo}"
+                    ShopImage = p.Shop.ShopLogo
                 })
                 .ToListAsync();
 
+            Log.Information("Top-rated affordable products retrieved");
             return topRatedAffordableProducts;
         }
     }

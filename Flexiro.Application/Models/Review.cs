@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Flexiro.Application.Models
 {
@@ -6,6 +7,8 @@ namespace Flexiro.Application.Models
     {
         [Key]
         public int ReviewId { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
         public decimal? Rating { get; set; }
         public string? Comment { get; set; }
         public int ProductId { get; set; }
@@ -13,5 +16,4 @@ namespace Flexiro.Application.Models
         public string UserId { get; set; }
         public virtual ApplicationUser User { get; set; }
     }
-
 }

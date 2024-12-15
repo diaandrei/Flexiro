@@ -1,13 +1,10 @@
 ﻿using Flexiro.Application.DTOs;
-using Flexiro.Application.Models;
 using Flexiro.Contracts.Requests;
 using Flexiro.Services.Services.Interfaces;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Flexiro.API.Controllers
 {
-    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class SellerController : ControllerBase
@@ -53,37 +50,7 @@ namespace Flexiro.API.Controllers
             {
                 return BadRequest(ModelState);
             }
-
             var result = await _productService.CreateProductAsync(productDto);
-            string imageFolderPath = Path.Combine(_environment.WebRootPath, "uploads", "productImages", result.Content.ProductId.ToString());
-
-            if (!Directory.Exists(imageFolderPath))
-            {
-                Directory.CreateDirectory(imageFolderPath);
-            }
-
-            var savedImagePaths = new List<string>();
-
-            foreach (var imageFile in productDto.ProductImages)
-            {
-                if (imageFile.Length > 0)
-                {
-                    var fileName = Guid.NewGuid().ToString() + Path.GetExtension(imageFile.FileName);
-                    var relativePath = Path.Combine("uploads", "productImages", result.Content.ProductId.ToString(), fileName);
-                    var filePath = Path.Combine(_environment.WebRootPath, relativePath);
-
-                    await using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await imageFile.CopyToAsync(stream);
-                    }
-
-                    // Add path to the list to update the ProductImages
-                    savedImagePaths.Add(relativePath);
-                }
-            }
-
-            // Update the product images paths
-            await _productService.UpdateProductImagePaths(result.Content.ProductId, savedImagePaths);
 
             if (result.Success)
             {
@@ -94,10 +61,22 @@ namespace Flexiro.API.Controllers
             return BadRequest(result);
         }
 
-        [HttpGet("getallproducts")]
-        public async Task<IActionResult> GetAllProducts()
+        [HttpGet("GetAllCategories")]
+        public async Task<IActionResult> GetAllCategories()
         {
-            var response = await _productService.GetAllProductsAsync();
+            var result = await _productService.GetAllCategoryNamesAsync();
+            if (!result.Success)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
+
+        [HttpGet("getallproducts/{shopId}")]
+        public async Task<IActionResult> GetAllProducts(int shopId)
+        {
+            var response = await _productService.GetAllProductsAsync(shopId);
+
             if (response.Success)
             {
                 return Ok(response);
@@ -114,11 +93,7 @@ namespace Flexiro.API.Controllers
             {
                 return Ok(response);
             }
-            if (productDto.ProductImages != null && productDto.ProductImages.Any())
-            {
-                var savedImagePaths = await SaveProductImages(productId, productDto.ProductImages);
-                await _productService.UpdateProductImagePaths(productId, savedImagePaths);
-            }
+
             return BadRequest(response);
         }
 
@@ -138,7 +113,6 @@ namespace Flexiro.API.Controllers
         public async Task<IActionResult> SearchProducts([FromQuery] string productName)
         {
             var response = await _productService.SearchProductsByNameAsync(productName);
-
             if (response.Success)
             {
                 return Ok(response);
@@ -146,11 +120,10 @@ namespace Flexiro.API.Controllers
             return BadRequest(response);
         }
 
-        [HttpPut("updateshop/{shopId}")]
-        public async Task<IActionResult> UpdateShop(int shopId, [FromForm] UpdateShopRequest updateShopRequest)
+        [HttpPut("updateshop")]
+        public async Task<IActionResult> UpdateShop([FromForm] UpdateShopRequest updateShopRequest)
         {
-
-            var response = await _shopService.UpdateShopAsync(shopId, updateShopRequest);
+            var response = await _shopService.UpdateShopAsync(updateShopRequest);
 
             if (response.Success)
             {
@@ -163,6 +136,7 @@ namespace Flexiro.API.Controllers
         public async Task<IActionResult> GetShopByOwnerId(string ownerId)
         {
             var result = await _shopService.GetShopByOwnerIdAsync(ownerId);
+
             if (!result.Success)
             {
                 return BadRequest(result);
@@ -170,10 +144,11 @@ namespace Flexiro.API.Controllers
             return Ok(result);
         }
 
-        [HttpPut("product/{productId}/status")]
-        public async Task<IActionResult> ChangeProductStatus(int productId, [FromBody] ProductStatus newStatus)
+        [HttpPut("product/status")]
+        public async Task<IActionResult> ChangeProductStatus(StatusDto newStatus)
         {
-            var response = await _productService.ChangeProductStatusAsync(productId, newStatus);
+            var response = await _productService.ChangeProductStatusAsync(newStatus.ProductId, newStatus.NewStatus);
+
             if (response.Success)
             {
                 return Ok(response);
@@ -181,44 +156,56 @@ namespace Flexiro.API.Controllers
             return BadRequest(response);
         }
 
-        [HttpGet("orders/{shopId}")]
+        [HttpGet("orders")]
         public async Task<IActionResult> GetOrdersByShop(int shopId)
         {
-            var orders = await _orderService.GetOrdersByShopAsync(shopId);
-            if (orders == null || !orders.Any())
+            var orders = await _orderService.GetGroupedOrdersByShopAsync(shopId);
+
+            if (orders == null! || (!orders.NewOrders.Any() && !orders.DeliveredOrders.Any() && !orders.AllOrders.Any()))
             {
                 return NotFound(new { success = false, message = "No orders found for this shop." });
             }
-            return Ok(new { success = true, orders });
+
+            return Ok(new
+            {
+                success = true,
+                newOrders = orders.NewOrders,
+                pendingOrders = orders.PendingOrders,
+                processingOrders = orders.ProcessingOrders,
+                shippedOrders = orders.ShippedOrders,
+                deliveredOrders = orders.DeliveredOrders,
+                canceledOrders = orders.CanceledOrders,
+                returnedOrders = orders.ReturnedOrders,
+                completedOrders = orders.CompletedOrders,
+                allOrders = orders.AllOrders
+            });
         }
 
-        private async Task<List<string>> SaveProductImages(int productId, List<IFormFile> images)
+        [HttpPut("ChangeShopStatus")]
+        public async Task<IActionResult> ChangeShopStatus([FromBody] ShopStatus newStatus)
         {
-            var savedImagePaths = new List<string>();
-            string imageFolderPath = Path.Combine(_environment.WebRootPath, "uploads", "productImages", productId.ToString());
+            var result = await _shopService.ChangeShopSellerStatusAsync(newStatus);
 
-            if (!Directory.Exists(imageFolderPath))
+            if (!result.Success)
             {
-                Directory.CreateDirectory(imageFolderPath);
+                return BadRequest(result);
             }
 
-            foreach (var imageFile in images)
-            {
-                if (imageFile.Length > 0)
-                {
-                    var fileName = Guid.NewGuid().ToString() + Path.GetExtension(imageFile.FileName);
-                    var relativePath = Path.Combine("uploads", "productImages", productId.ToString(), fileName);
-                    var filePath = Path.Combine(_environment.WebRootPath, relativePath);
+            return Ok(result);
+        }
 
-                    await using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await imageFile.CopyToAsync(stream);
-                    }
+        [HttpPut("order/update-status")]
+        public async Task<IActionResult> UpdateOrderStatus([FromBody] UpdateOrderStatusDto request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(new { success = false, message = "Invalid request data." });
 
-                    savedImagePaths.Add(relativePath);
-                }
-            }
-            return savedImagePaths;
+            var result = await _orderService.UpdateOrderStatusAsync(request);
+
+            if (!result)
+                return NotFound(new { success = false, message = "Order not found or status update failed." });
+
+            return Ok(new { success = true, message = "Order status updated successfully." });
         }
     }
 }

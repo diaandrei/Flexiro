@@ -99,9 +99,9 @@ namespace Flexiro.API.Controllers
         }
 
         [HttpPost("Login")]
-        public async Task<ResponseModel<LoginDTO>> Login([FromBody] LoginRequest model)
+        public async Task<ResponseModel<LoginDto>> Login([FromBody] LoginRequest model)
         {
-            ResponseModel<LoginDTO> response = new ResponseModel<LoginDTO>
+            ResponseModel<LoginDto> response = new ResponseModel<LoginDto>
             {
                 Title = "Something went wrong.",
                 Success = false
@@ -139,7 +139,7 @@ namespace Flexiro.API.Controllers
 
                             var token = JwtTokenGenerator.GenerateToken(jwtReq);
 
-                            LoginDTO login = new LoginDTO
+                            LoginDto login = new LoginDto
                             {
                                 Token = token,
                                 IsAdmin = user.IsAdmin,

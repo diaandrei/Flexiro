@@ -2,7 +2,7 @@
 {
     public enum ProductStatus
     {
-        Draft,
-        ForSell,
+        Draft = 0,
+        ForSell = 1
     }
 }

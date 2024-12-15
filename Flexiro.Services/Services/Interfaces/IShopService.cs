@@ -1,4 +1,5 @@
-﻿using Flexiro.Application.Models;
+﻿using Flexiro.Application.DTOs;
+using Flexiro.Application.Models;
 using Flexiro.Contracts.Requests;
 using Flexiro.Contracts.Responses;
 
@@ -7,7 +8,7 @@ namespace Flexiro.Services.Services.Interfaces
     public interface IShopService
     {
         Task<ResponseModel<Shop>> CreateShopAsync(Shop createShopRequest);
-        Task<ResponseModel<Shop>> UpdateShopAsync(int shopId, UpdateShopRequest updateShopRequest);
+        Task<ResponseModel<Shop>> UpdateShopAsync(UpdateShopRequest updateShopRequest);
         Task<ResponseModel<Shop>> GetShopByIdAsync(int shopId);
 
         Task<ResponseModel<IList<Shop>>> GetActiveShopsAsync();
@@ -22,6 +23,7 @@ namespace Flexiro.Services.Services.Interfaces
 
         Task<ResponseModel<Shop>> UpdateShopStatusAsync(int shopId, ShopAdminStatus newStatus);
         Task<ResponseModel<ShopResponse>> GetShopByOwnerIdAsync(string ownerId);
-        Task<ResponseModel<string>> ChangeShopStatusByAdminAsync(int shopId, ShopAdminStatus newStatus);
+        Task<ResponseModel<string>> ChangeShopStatusByAdminAsync(int shopId, int newStatus);
+        Task<ResponseModel<string>> ChangeShopSellerStatusAsync(ShopStatus newStatus);
     }
 }

@@ -27,7 +27,7 @@ namespace Flexiro.Api.AutoMapper
             .ForMember(dest => dest.MinimumPurchaseQuantity, opt => opt.MapFrom(src => src.MinimumPurchase))
             .ForMember(dest => dest.StockQuantity, opt => opt.MapFrom(src => src.Stock))
             .ForMember(dest => dest.ProductId, opt => opt.Ignore())
-            .ForMember(dest => dest.totalsold, opt => opt.Ignore())
+            .ForMember(dest => dest.TotalSold, opt => opt.Ignore())
             .ForMember(dest => dest.QualityStatus, opt => opt.Ignore())
             .ForMember(dest => dest.Shop, opt => opt.Ignore())
             .ForMember(dest => dest.Category, opt => opt.Ignore())
@@ -55,7 +55,7 @@ namespace Flexiro.Api.AutoMapper
             .ForMember(dest => dest.CategoryId, opt => opt.Ignore())
             .ForMember(dest => dest.Category, opt => opt.Ignore())
             .ForMember(dest => dest.Reviews, opt => opt.Ignore())
-            .ForMember(dest => dest.totalsold, opt => opt.Ignore());
+            .ForMember(dest => dest.TotalSold, opt => opt.Ignore());
 
             CreateMap<UserWishlist, UserWishlistResponseDto>()
           .ForMember(dest => dest.ProductId, opt => opt.MapFrom(src => src.ProductId))
