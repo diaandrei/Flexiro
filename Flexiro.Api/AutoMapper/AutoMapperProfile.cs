@@ -19,19 +19,22 @@ namespace Flexiro.Api.AutoMapper
                 .ForMember(dest => dest.IsSeller, opt => opt.Ignore())
                 .ForMember(dest => dest.AdminStatus, opt => opt.Ignore())
                 .ForMember(dest => dest.Products, opt => opt.Ignore())
-                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore());
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+                 .ForMember(dest => dest.ClosingTime, opt => opt.Ignore())
+                 .ForMember(dest => dest.OpeningTime, opt => opt.Ignore())
+                 .ForMember(dest => dest.OpeningDate, opt => opt.Ignore());
 
             CreateMap<ProductCreateDto, Product>()
-            .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Name))
-            .ForMember(dest => dest.ProductImages, opt => opt.Ignore())
-            .ForMember(dest => dest.MinimumPurchaseQuantity, opt => opt.MapFrom(src => src.MinimumPurchase))
-            .ForMember(dest => dest.StockQuantity, opt => opt.MapFrom(src => src.Stock))
-            .ForMember(dest => dest.ProductId, opt => opt.Ignore())
-            .ForMember(dest => dest.TotalSold, opt => opt.Ignore())
-            .ForMember(dest => dest.QualityStatus, opt => opt.Ignore())
-            .ForMember(dest => dest.Shop, opt => opt.Ignore())
-            .ForMember(dest => dest.Category, opt => opt.Ignore())
-            .ForMember(dest => dest.Reviews, opt => opt.Ignore());
+                .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Name))
+                .ForMember(dest => dest.ProductImages, opt => opt.Ignore())
+                .ForMember(dest => dest.MinimumPurchaseQuantity, opt => opt.MapFrom(src => src.MinimumPurchase))
+                .ForMember(dest => dest.StockQuantity, opt => opt.MapFrom(src => src.Stock))
+                .ForMember(dest => dest.ProductId, opt => opt.Ignore())
+                .ForMember(dest => dest.TotalSold, opt => opt.Ignore())
+                 .ForMember(dest => dest.QualityStatus, opt => opt.Ignore())
+                .ForMember(dest => dest.Shop, opt => opt.Ignore())
+                .ForMember(dest => dest.Category, opt => opt.Ignore())
+                .ForMember(dest => dest.Reviews, opt => opt.Ignore());
 
             CreateMap<Product, ProductResponseDto>()
                 .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.ProductName))
@@ -39,39 +42,35 @@ namespace Flexiro.Api.AutoMapper
                 .ForMember(dest => dest.StockQuantity, opt => opt.MapFrom(src => src.StockQuantity))
                 .ForMember(dest => dest.ProductImageUrls, opt => opt.MapFrom(src => src.ProductImages.Select(pi => pi.Path).ToList())); ;
 
-
             CreateMap<ProductUpdateDto, Product>()
-
-            .ForMember(dest => dest.Tags, opt => opt.Condition(src => src.Tags != null))
-
-            .ForMember(dest => dest.Tags, opt => opt.MapFrom((src, dest) =>
-                src.Tags != null ? src.Tags : dest.Tags))
-            .ForMember(dest => dest.ProductId, opt => opt.Ignore())
-            .ForMember(dest => dest.SKU, opt => opt.Ignore())
-              .ForMember(dest => dest.ProductImages, opt => opt.Ignore())
-            .ForMember(dest => dest.QualityStatus, opt => opt.Ignore())
-            .ForMember(dest => dest.ShopId, opt => opt.Ignore())
-            .ForMember(dest => dest.Shop, opt => opt.Ignore())
-            .ForMember(dest => dest.CategoryId, opt => opt.Ignore())
-            .ForMember(dest => dest.Category, opt => opt.Ignore())
-            .ForMember(dest => dest.Reviews, opt => opt.Ignore())
-            .ForMember(dest => dest.TotalSold, opt => opt.Ignore());
+                .ForMember(dest => dest.Tags, opt => opt.Condition(src => src.Tags != null))
+                .ForMember(dest => dest.Tags, opt => opt.MapFrom((src, dest) =>
+                    src.Tags != null! ? src.Tags : dest.Tags))
+                .ForMember(dest => dest.ProductId, opt => opt.Ignore())
+                .ForMember(dest => dest.SKU, opt => opt.Ignore())
+                  .ForMember(dest => dest.ProductImages, opt => opt.Ignore())
+                   .ForMember(dest => dest.QualityStatus, opt => opt.Ignore())
+                .ForMember(dest => dest.ShopId, opt => opt.Ignore())
+                .ForMember(dest => dest.Shop, opt => opt.Ignore())
+                .ForMember(dest => dest.CategoryId, opt => opt.Ignore())
+                .ForMember(dest => dest.Category, opt => opt.Ignore())
+                .ForMember(dest => dest.Reviews, opt => opt.Ignore())
+                .ForMember(dest => dest.TotalSold, opt => opt.Ignore());
 
             CreateMap<UserWishlist, UserWishlistResponseDto>()
-          .ForMember(dest => dest.ProductId, opt => opt.MapFrom(src => src.ProductId))
-          .ForMember(dest => dest.ShopId, opt => opt.MapFrom(src => src.ShopId))
-          .ForMember(dest => dest.UserId, opt => opt.MapFrom(src => src.UserId))
-          .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
-          .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt))
-            .ForSourceMember(src => src.Product, opt => opt.DoNotValidate())
-    .ForSourceMember(src => src.Shop, opt => opt.DoNotValidate())
-    .ForSourceMember(src => src.User, opt => opt.DoNotValidate());
-
+              .ForMember(dest => dest.ProductId, opt => opt.MapFrom(src => src.ProductId))
+              .ForMember(dest => dest.ShopId, opt => opt.MapFrom(src => src.ShopId))
+              .ForMember(dest => dest.UserId, opt => opt.MapFrom(src => src.UserId))
+              .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
+              .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt))
+                .ForSourceMember(src => src.Product, opt => opt.DoNotValidate())
+                .ForSourceMember(src => src.Shop, opt => opt.DoNotValidate())
+                .ForSourceMember(src => src.User, opt => opt.DoNotValidate());
 
             CreateMap<Shop, ShopResponse>()
-           .ForMember(dest => dest.Products, opt => opt.MapFrom(src => src.Products.ToList()))
-           .ForMember(dest => dest.OwnerId, opt => opt.MapFrom(src => src.OwnerId))
-           .ForMember(dest => dest.OwnerName, opt => opt.MapFrom(src => src.OwnerName));
+               .ForMember(dest => dest.Products, opt => opt.MapFrom(src => src.Products.ToList()))
+               .ForMember(dest => dest.OwnerId, opt => opt.MapFrom(src => src.OwnerId))
+               .ForMember(dest => dest.OwnerName, opt => opt.MapFrom(src => src.OwnerName));
 
             CreateMap<AddUpdateShippingAddressRequest, ShippingAddress>()
                       .ForMember(dest => dest.ShippingAddressId, opt => opt.Ignore())
@@ -95,6 +94,15 @@ namespace Flexiro.Api.AutoMapper
                 .ForMember(dest => dest.User, opt => opt.Ignore())
                 .ForMember(dest => dest.UserId, opt => opt.Ignore())
                 .ForMember(dest => dest.AddToAddressBook, opt => opt.Ignore());
+
+            CreateMap<UserWishlist, WishlistProductResponseDto>()
+                .ForMember(dest => dest.ProductId, opt => opt.MapFrom(src => src.ProductId))
+                .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product.ProductName))
+                .ForMember(dest => dest.ProductDescription, opt => opt.MapFrom(src => src.Product.Description))
+                .ForMember(dest => dest.Price, opt => opt.MapFrom(src => src.Product.PricePerItem))
+                .ForMember(dest => dest.MainImage, opt => opt.MapFrom(src => src.Product.ProductImages.FirstOrDefault().Path)) 
+                .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.Product.Category.Name))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt));
         }
     }
 }
