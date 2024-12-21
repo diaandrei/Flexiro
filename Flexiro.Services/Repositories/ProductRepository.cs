@@ -52,7 +52,7 @@ namespace Flexiro.Services.Repositories
                     {
                         ProductId = product.ProductId,
                         Path = "",
-                        CreatedAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.Now,
                     };
 
                     productImages.Add(productImage);
@@ -119,7 +119,7 @@ namespace Flexiro.Services.Repositories
                             {
                                 ProductId = product.ProductId,
                                 Path = imageUrl,  // Save the full image URL
-                                CreatedAt = DateTime.UtcNow,
+                                CreatedAt = DateTime.Now,
                             };
 
                             productImages.Add(productImage);
@@ -212,6 +212,7 @@ namespace Flexiro.Services.Repositories
                     PricePerItem = product.PricePerItem,
                     ShopId = product.ShopId,
                     CategoryId = product.CategoryId,
+                    DiscountPercentage = product.DiscountPercentage,
                     MainImage = product.ProductImages?.FirstOrDefault() != null
                     ? product.ProductImages.First().Path : string.Empty,
                     Weight = product.Weight,
@@ -240,7 +241,7 @@ namespace Flexiro.Services.Repositories
             }
             catch (Exception ex)
             {
-                throw;
+                throw new Exception($"Failed to retrieve the product with ID: {productId}");
             }
         }
 
@@ -265,9 +266,7 @@ namespace Flexiro.Services.Repositories
 
             var totalReviews = product.Reviews.Count;
 
-            var finalPrice = product.DiscountPercentage.HasValue
-                ? product.PricePerItem - (product.PricePerItem * (product.DiscountPercentage.Value / 100))
-                : product.PricePerItem;
+            var finalPrice = product.PricePerItem;
 
             var isInWishlist = await _unitOfWork.Repository
                .GetQueryable<UserWishlist>(w => w.ProductId == productId && w.UserId == userId)
@@ -288,6 +287,7 @@ namespace Flexiro.Services.Repositories
                 AverageRating = averageRating,
                 TotalReviews = totalReviews,
                 IsInWishlist = isInWishlist,
+                TotalStock = product.StockQuantity,
                 TotalSold = product.TotalSold ?? 0,
                 CategoryName = product.Category?.Name!,
                 Reviews = product.Reviews.Select(review => new ReviewResponseDto
@@ -297,6 +297,7 @@ namespace Flexiro.Services.Repositories
                     UserName = review.User.UserName ?? "Anonymous",
                     Rating = review.Rating ?? 0,
                     Comment = review.Comment ?? "No comment provided."
+
                 }).ToList()
             };
 
@@ -433,7 +434,7 @@ namespace Flexiro.Services.Repositories
                     ProductId = productId,
                     UserId = userId,
                     ShopId = shopId,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.Now
                 };
 
                 // Add the new wishlist item to the repository
@@ -448,13 +449,13 @@ namespace Flexiro.Services.Repositories
             }
         }
 
-        public async Task<bool> RemoveProductFromWishlistAsync(int productId, string userId, int shopId)
+        public async Task<bool> RemoveProductFromWishlistAsync(int productId, string userId)
         {
             try
             {
                 // Find the wishlist item based on productId, userId, and shopId
                 var wishlistItem = await _unitOfWork.Repository
-                    .GetQueryable<UserWishlist>(w => w.ProductId == productId && w.UserId == userId && w.ShopId == shopId)
+                    .GetQueryable<UserWishlist>(w => w.ProductId == productId && w.UserId == userId)
                     .FirstOrDefaultAsync();
 
                 if (wishlistItem == null)
@@ -463,14 +464,14 @@ namespace Flexiro.Services.Repositories
                 }
 
                 // Remove the wishlist item from the repository
-                _unitOfWork.Repository.HardDelete(wishlistItem);
+                await _unitOfWork.Repository.HardDeleteAsync(wishlistItem);
                 await _unitOfWork.Repository.CompleteAsync();
 
                 return true;
             }
             catch (Exception)
             {
-                return false; // Return false if any errors occur
+                return false; // Return false if any error occurs
             }
         }
 
@@ -506,7 +507,7 @@ namespace Flexiro.Services.Repositories
         {
             try
             {
-                var currentDate = DateTime.UtcNow;
+                var currentDate = DateTime.Now;
 
                 var saleProducts = await _unitOfWork.Repository
                     .GetQueryable<Product>(p => p.DiscountPercentage.HasValue &&
@@ -564,6 +565,62 @@ namespace Flexiro.Services.Repositories
             {
                 throw new Exception("An error occurred while retrieving top-rated affordable products.", ex);
             }
+        }
+
+        public async Task<List<UserWishlist>> GetWishlistProductsByShopAsync(int shopId)
+        {
+            try
+            {
+                // Fetch wishlist items for the given shop, including additional details
+                var wishlistItems = await _unitOfWork.Repository
+                    .GetQueryable<UserWishlist>(w => w.ShopId == shopId)
+                    .Include(w => w.Product) // Include product details
+                    .ThenInclude(p => p.ProductImages) // Include product images
+                    .Include(w => w.Product.Category) // Include product category
+                    .ToListAsync();
+                return wishlistItems;
+            }
+            catch (Exception)
+            {
+                return null!;
+            }
+        }
+
+        public async Task<List<UserWishlist>> GetWishlistProductsByUserAsync(string userId)
+        {
+            try
+            {
+                // Fetch wishlist items for the given shop, including additional details
+                var wishlistItems = await _unitOfWork.Repository
+                    .GetQueryable<UserWishlist>(w => w.UserId == userId)
+                    .Include(w => w.Product) // Include product details
+                    .ThenInclude(p => p.ProductImages) // Include product images
+                    .Include(w => w.Product.Category) // Include product category
+                    .ToListAsync();
+                return wishlistItems;
+            }
+            catch (Exception)
+            {
+                return null!;
+            }
+        }
+
+        public async Task<bool> AddOrUpdateDiscountPercentageAsync(int productId, decimal discountPercentage)
+        {
+            var product = await _unitOfWork.Repository.GetQueryable<Product>(p => p.ProductId == productId)
+                .FirstOrDefaultAsync();
+
+            // Update only the discount percentage
+            if (product == null)
+            {
+                return false;
+            }
+            product.DiscountPercentage = discountPercentage;
+
+            _unitOfWork.Repository.Update(product);
+            await _unitOfWork.Repository.CompleteAsync();
+
+            return true;
         }
     }
 }

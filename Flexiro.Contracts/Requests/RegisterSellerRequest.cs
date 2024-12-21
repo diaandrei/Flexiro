@@ -19,5 +19,7 @@ namespace Flexiro.Contracts.Requests
         public DateTime OpeningDate { get; set; }
         public required string OpeningTime { get; set; }
         public required string ClosingTime { get; set; }
+        public string OpeningDay { get; set; }
+        public string ClosingDay { get; set; }
     }
 }

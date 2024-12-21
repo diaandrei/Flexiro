@@ -76,7 +76,7 @@ namespace Flexiro.API.Controllers
                 SaleProducts = saleProducts,
                 TopRatedAffordableProducts = topRatedAffordableProducts,
                 Title = "Customer Dashboard Data Retrieved Successfully",
-                Description = "All active shops, sale products, and chepear products have been retrieved."
+                Description = "All active shops, sale products, and cheaper products have been retrieved."
             };
 
             return Ok(new ResponseModel<CustomerDashboardResponse>
@@ -91,7 +91,7 @@ namespace Flexiro.API.Controllers
         [HttpGet("shops/{shopId}/products")]
         public async Task<IActionResult> GetProductsByShopId(int shopId, [FromQuery] string? userId)
         {
-            var response = await _productService.GetProductsByShopIdAsync(shopId, userId);
+            var response = await _productService.GetProductsByShopIdAsync(shopId, userId!);
 
             if (response.Success)
             {
@@ -104,7 +104,6 @@ namespace Flexiro.API.Controllers
         [HttpGet("product/details/{productId}")]
         public async Task<IActionResult> GetProductDetails(int productId, [FromQuery] string userId)
         {
-
             var result = await _productService.GetProductDetailsByIdAsync(productId, userId);
 
             if (result.Success)
@@ -199,7 +198,6 @@ namespace Flexiro.API.Controllers
         [HttpGet("cart")]
         public async Task<IActionResult> GetCart(string userId)
         {
-
             var result = await _cartService.GetCartAsync(userId);
 
             if (result.Success)
@@ -266,7 +264,7 @@ namespace Flexiro.API.Controllers
         [HttpPost("order/place")]
         public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequest placeOrderRequest)
         {
-            if (placeOrderRequest == null || string.IsNullOrEmpty(placeOrderRequest.UserId))
+            if (placeOrderRequest == null! || string.IsNullOrEmpty(placeOrderRequest.UserId))
             {
                 return BadRequest("Invalid order request.");
             }
@@ -317,6 +315,7 @@ namespace Flexiro.API.Controllers
         public async Task<IActionResult> ClearCart(string userId)
         {
             var result = await _cartService.ClearCartAsync(userId);
+
             if (result.Success)
             {
                 return Ok(result);
@@ -343,6 +342,38 @@ namespace Flexiro.API.Controllers
             }
 
             return NotFound(new { success = false, message = "Cart not found or empty." });
+        }
+
+        [HttpGet("orders")]
+        public async Task<IActionResult> GetCustomerOrders(string userId)
+        {
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var orders = await _orderService.GetOrdersByCustomerAsync(userId);
+
+            if (orders == null! || !orders.Any())
+                return NotFound(new { message = "No orders found for the customer." });
+
+            return Ok(orders);
+        }
+
+        [HttpGet("wishlist-products/{userId}")]
+        public async Task<IActionResult> GetWishlistProducts(string userId)
+        {
+            var response = await _productService.GetWishlistProductsByUserAsync(userId);
+
+            if (!response.Success)
+            {
+                return BadRequest(new
+                {
+                    response.Title,
+                    response.Description,
+                    response.ExceptionMessage
+                });
+            }
+
+            return Ok(response);
         }
     }
 }

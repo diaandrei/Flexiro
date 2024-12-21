@@ -9,5 +9,6 @@
         public bool IsSeller { get; set; }
         public string Name { get; set; }
         public string Email { get; set; }
+        public object AdditionalInfo { get; set; }
     }
 }

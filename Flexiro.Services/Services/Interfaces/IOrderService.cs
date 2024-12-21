@@ -15,5 +15,6 @@ namespace Flexiro.Services.Services.Interfaces
         Task<int> GetNewOrderCountByShopAsync(int shopId);
         Task<GroupedOrdersDto> GetGroupedOrdersByShopAsync(int shopId);
         Task<bool> UpdateOrderStatusAsync(UpdateOrderStatusDto request);
+        Task<List<CustomerOrderResponseDto>> GetOrdersByCustomerAsync(string userId);
     }
 }

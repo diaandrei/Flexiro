@@ -28,7 +28,7 @@ namespace Flexiro.Application.Models
         public decimal TotalAmount { get; set; } = 0;
 
         [Required]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         public DateTime? UpdatedAt { get; set; }
 

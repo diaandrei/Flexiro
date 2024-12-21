@@ -53,8 +53,10 @@ namespace Flexiro.Services.Services
                             Title = "Product Not Found",
                             Description = $"Product with ID '{itemRequest.ProductId}' does not exist."
                         };
+
                         return response;
                     }
+
                     if (product.StockQuantity < itemRequest.Quantity || itemRequest.Quantity <= 0)
                     {
                         response = new ResponseModel<List<CartItem>>
@@ -91,6 +93,7 @@ namespace Flexiro.Services.Services
                     Description = "An error occurred while adding the item to the cart.",
                     ExceptionMessage = ex.Message
                 };
+
                 _logger.LogError(ex, "Error occurred while adding item to cart for user ID: {UserId}", userId);
             }
 
@@ -215,7 +218,7 @@ namespace Flexiro.Services.Services
                 {
                     response.Success = false;
                     response.Title = "Error Updating Cart Item";
-                    response.Description = "An error occurred while updating the cart item (either item not found or insufficient stock).";
+                    response.Description = "The cart item could not be updated because it was either not found or there is insufficient stock.";
                 }
                 else
                 {
@@ -318,20 +321,20 @@ namespace Flexiro.Services.Services
             return response;
         }
 
-        public async Task<ResponseModel<CartSummaryResponseModel>> GetCartSummaryAsync(string UserId)
+        public async Task<ResponseModel<CartSummaryResponseModel>> GetCartSummaryAsync(string userId)
         {
             var response = new ResponseModel<CartSummaryResponseModel>();
 
             try
             {
                 // Call repository function to get the cart summary
-                var cartSummary = await _cartRepository.GetCartSummaryAsync(UserId.ToString());
+                var cartSummary = await _cartRepository.GetCartSummaryAsync(userId.ToString());
 
                 if (cartSummary == null!)
                 {
                     response.Success = false;
                     response.Title = "Cart Not Found";
-                    response.Description = "No active cart found for the user.";
+                    response.Description = "No active cart was found for the user.";
                     return response;
                 }
 
@@ -339,7 +342,7 @@ namespace Flexiro.Services.Services
                 response.Success = true;
                 response.Content = cartSummary;
                 response.Title = "Cart Summary Retrieved Successfully";
-                response.Description = "The cart summary has been retrieved.";
+                response.Description = "The cart summary has been successfully retrieved.";
             }
             catch (Exception ex)
             {
@@ -348,7 +351,7 @@ namespace Flexiro.Services.Services
                 response.Title = "Error Retrieving Cart Summary";
                 response.Description = "An error occurred while retrieving the cart summary.";
                 response.ExceptionMessage = ex.Message;
-                _logger.LogError(ex, "Error occurred while retrieving cart summary for user ID: {UserId}", UserId);
+                _logger.LogError(ex, "Error occurred while retrieving cart summary for user ID: {UserId}", userId);
             }
 
             return response;
@@ -364,6 +367,7 @@ namespace Flexiro.Services.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving cart item count for user ID: {UserId}", userId);
+
                 return null;
             }
         }

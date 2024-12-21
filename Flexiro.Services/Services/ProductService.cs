@@ -42,6 +42,7 @@ namespace Flexiro.Services.Services
                 var product = await _productRepository.CreateProductAsync(productDto);
 
                 var imageUrls = new List<string>();
+
                 foreach (var imageFile in productDto.ProductImages)
                 {
                     if (imageFile.Length > 0)
@@ -226,13 +227,20 @@ namespace Flexiro.Services.Services
 
                 var forSellProducts = products.Where(p => p.Status == ProductStatus.ForSell).ToList();
                 var draftProducts = products.Where(p => p.Status == ProductStatus.Draft).ToList();
-                var forSaleProducts = products.Where(p => p.Status == ProductStatus.ForSell && p.Availability == AvailabilityStatus.ForSale && p.DiscountPercentage != 0).ToList();
-                var notForSaleProducts = products.Where(p => p.Status == ProductStatus.ForSell && p.Availability == AvailabilityStatus.NotForSale && p.DiscountPercentage == 0).ToList();
+                var forSaleProducts = products
+                    .Where(p => p.Status == ProductStatus.ForSell && p.DiscountPercentage != 0)
+                    .ToList();
+                var notForSaleProducts = products
+                    .Where(p => p.Status == ProductStatus.ForSell && p.Availability == AvailabilityStatus.NotForSale && p.DiscountPercentage == 0)
+                    .ToList();
+                var soldOutProducts = products.Where(p => p.Status == ProductStatus.SoldOut).ToList();
 
+                // Generate responses for each category
                 var forSellProductResponses = await _productRepository.GetProductResponsesAsync(forSellProducts);
                 var draftProductResponses = await _productRepository.GetProductResponsesAsync(draftProducts);
                 var forSaleProductResponses = await _productRepository.GetProductResponsesAsync(forSaleProducts);
                 var notForSaleProductResponses = await _productRepository.GetProductResponsesAsync(notForSaleProducts);
+                var soldOutProductResponses = await _productRepository.GetProductResponsesAsync(soldOutProducts);
 
                 response.Success = true;
                 response.Content = new ProductListsDto
@@ -240,7 +248,8 @@ namespace Flexiro.Services.Services
                     ForSellProducts = forSellProductResponses,
                     DraftProducts = draftProductResponses,
                     ForSaleProducts = forSaleProductResponses,
-                    NotForSaleProducts = notForSaleProductResponses
+                    NotForSaleProducts = notForSaleProductResponses,
+                    SoldOutProducts = soldOutProductResponses
                 };
                 response.Title = "Products Retrieved Successfully";
                 response.Description = "Products retrieved based on status.";
@@ -456,7 +465,7 @@ namespace Flexiro.Services.Services
 
             try
             {
-                var removed = await _productRepository.RemoveProductFromWishlistAsync(productId, userId, shopId);
+                var removed = await _productRepository.RemoveProductFromWishlistAsync(productId, userId);
 
                 if (!removed)
                 {
@@ -563,6 +572,129 @@ namespace Flexiro.Services.Services
 
             Log.Information("Top-rated affordable products retrieved");
             return topRatedAffordableProducts;
+        }
+
+        public async Task<ResponseModel<List<WishlistProductResponseDto>>> GetWishlistProductsByUserAsync(string userId)
+        {
+            var response = new ResponseModel<List<WishlistProductResponseDto>>();
+
+            try
+            {
+                // Call the repository to fetch wishlist items
+                var wishlistItems = await _productRepository.GetWishlistProductsByUserAsync(userId);
+
+                if (wishlistItems == null! || !wishlistItems.Any())
+                {
+                    response.Success = false;
+                    response.Title = "No Wishlist Items Found";
+                    response.Description = "No products were found in your wishlist.";
+                    return response;
+                }
+
+                // Map wishlist items to response DTO
+                var wishlistProductDtos = wishlistItems
+                    .Select(item => _mapper.Map<WishlistProductResponseDto>(item))
+                    .ToList();
+
+                // Set success response
+                response.Success = true;
+                response.Content = wishlistProductDtos;
+                response.Title = "Wishlist Products Retrieved";
+                response.Description = "The products in your wishlist have been successfully retrieved.";
+            }
+            catch (Exception ex)
+            {
+                // Handle exceptions and set failure response
+                response.Success = false;
+                response.Title = "Error Fetching Wishlist";
+                response.Description = "An error occurred while retrieving the wishlist products.";
+                response.ExceptionMessage = ex.Message;
+            }
+
+            return response;
+        }
+
+        public async Task<ResponseModel<List<WishlistProductResponseDto>>> GetWishlistProductsByShopAsync(int shopId)
+        {
+            var response = new ResponseModel<List<WishlistProductResponseDto>>();
+
+            try
+            {
+                // Call the repository to fetch wishlist items
+                var wishlistItems = await _productRepository.GetWishlistProductsByShopAsync(shopId);
+
+                if (wishlistItems == null! || !wishlistItems.Any())
+                {
+                    response.Success = false;
+                    response.Title = "No items found in your wishlist";
+                    response.Description = "No products were found in the wishlist for this shop.";
+                    return response;
+                }
+
+                // Map wishlist items to response DTO
+                var wishlistProductDtos = wishlistItems
+                    .Select(item => _mapper.Map<WishlistProductResponseDto>(item))
+                    .ToList();
+
+                // Set success response
+                response.Success = true;
+                response.Content = wishlistProductDtos;
+                response.Title = "Wishlist Products Retrieved";
+                response.Description = "The products in your wishlist have been retrieved successfully.";
+            }
+            catch (Exception ex)
+            {
+                // Handle exceptions and set failure response
+                response.Success = false;
+                response.Title = "Error Fetching Wishlist";
+                response.Description = "An error occurred while fetching the wishlist products.";
+                response.ExceptionMessage = ex.Message;
+            }
+
+            return response;
+        }
+
+        public async Task<ResponseModel<object>> AddOrUpdateDiscountPercentageAsync(int productId, UpdateDiscountDto discountDto)
+        {
+            var response = new ResponseModel<object>();
+
+            try
+            {
+                // Validate the discount percentage
+                if (discountDto.DiscountPercentage < 0 || discountDto.DiscountPercentage > 100)
+                {
+                    response.Success = false;
+                    response.Title = "Invalid Discount Percentage";
+                    response.Description = "Discount percentage must be between 0 and 100.";
+                    return response;
+                }
+
+                // Call repository method to update the discount percentage
+                var isUpdated = await _productRepository.AddOrUpdateDiscountPercentageAsync(productId, discountDto.DiscountPercentage);
+
+                if (!isUpdated)
+                {
+                    response.Success = false;
+                    response.Title = "Product Not Found";
+                    response.Description = "The product could not be found or updated.";
+                    return response;
+                }
+
+                response.Success = true;
+                response.Content = true;
+                response.Title = "Discount Updated Successfully";
+                response.Description = $"Discount percentage has been updated to {discountDto.DiscountPercentage}%.";
+            }
+            catch (Exception ex)
+            {
+                // Handle exceptions and set failure response
+                response.Success = false;
+                response.Title = "Error Updating Discount";
+                response.Description = "An error occurred while updating the discount percentage.";
+                response.ExceptionMessage = ex.Message;
+            }
+
+            return response;
         }
     }
 }

@@ -88,7 +88,7 @@ namespace Flexiro.API.Controllers
 
                 if (productRatingsResponse.Success && !string.IsNullOrEmpty(productRatingsResponse.Content))
                 {
-                    // Try to parse the average rating (which is stored as a string in the response.Content)
+                    // Try to parse the average rating
                     if (double.TryParse(productRatingsResponse.Content, out double parsedRating))
                     {
                         averageRating = parsedRating;

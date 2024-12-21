@@ -19,10 +19,13 @@ namespace Flexiro.Services.Repositories
         Task<IEnumerable<ProductResponseDto>> GetProductsByCategoryIdAsync(int categoryId);
         Task<IEnumerable<ProductResponseDto>> SearchProductsByNameAsync(string productName);
         Task<UserWishlist> AddProductToWishlistAsync(int productId, string userId, int shopId);
-        Task<bool> RemoveProductFromWishlistAsync(int productId, string userId, int shopId);
+        Task<bool> RemoveProductFromWishlistAsync(int productId, string userId);
         Task<Product> ChangeProductStatusAsync(int productId, int newStatus);
         Task UpdateProductImagePaths(int productId, List<string> imagePaths);
         Task<List<ProductSaleResponseDto>> GetSaleProductsAsync();
         Task<List<ProductTopRatedDto>> GetTopRatedAffordableProductsAsync();
+        Task<List<UserWishlist>> GetWishlistProductsByShopAsync(int shopId);
+        Task<bool> AddOrUpdateDiscountPercentageAsync(int productId, decimal discountPercentage);
+        Task<List<UserWishlist>> GetWishlistProductsByUserAsync(string userId);
     }
 }

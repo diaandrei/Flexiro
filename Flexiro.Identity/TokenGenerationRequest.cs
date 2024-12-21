@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Flexiro.Identity
+﻿namespace Flexiro.Identity
 {
     public class TokenGenerationRequest
     {

@@ -1,4 +1,6 @@
-﻿namespace Flexiro.Contracts.Responses
+﻿using Flexiro.Application.Models;
+
+namespace Flexiro.Contracts.Responses
 {
     public class CartMainModel
     {
@@ -7,5 +9,6 @@
         public decimal? Discount { get; set; }
         public decimal? ShippingCharges { get; set; }
         public decimal Total { get; set; }
+        public List<CartItem> Items { get; set; }
     }
 }
