@@ -3,6 +3,7 @@
     public enum ProductStatus
     {
         Draft = 0,
-        ForSell = 1
+        ForSell = 1,
+        SoldOut = 2,
     }
 }

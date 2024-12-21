@@ -198,7 +198,7 @@ namespace Flexiro.API.Controllers
                         City = model.City,
                         ZipCode = model.ZipCode,
                         IsSeller = true,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = DateTime.Now
                     };
 
                     // Create the user account
@@ -259,7 +259,7 @@ namespace Flexiro.API.Controllers
                         OpeningDate = model.OpeningDate,
                         OpeningTime = model.OpeningTime,
                         ClosingTime = model.ClosingTime,
-                        CreatedAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.Now,
                         IsSeller = true
                     };
 

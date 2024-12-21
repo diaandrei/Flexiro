@@ -52,7 +52,7 @@ namespace Flexiro.Services.Repositories
                     {
                         ProductId = product.ProductId,
                         Path = "",
-                        CreatedAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.Now,
                     };
 
                     productImages.Add(productImage);
@@ -119,7 +119,7 @@ namespace Flexiro.Services.Repositories
                             {
                                 ProductId = product.ProductId,
                                 Path = imageUrl,  // Save the full image URL
-                                CreatedAt = DateTime.UtcNow,
+                                CreatedAt = DateTime.Now,
                             };
 
                             productImages.Add(productImage);
@@ -433,7 +433,7 @@ namespace Flexiro.Services.Repositories
                     ProductId = productId,
                     UserId = userId,
                     ShopId = shopId,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.Now
                 };
 
                 // Add the new wishlist item to the repository
@@ -506,7 +506,7 @@ namespace Flexiro.Services.Repositories
         {
             try
             {
-                var currentDate = DateTime.UtcNow;
+                var currentDate = DateTime.Now;
 
                 var saleProducts = await _unitOfWork.Repository
                     .GetQueryable<Product>(p => p.DiscountPercentage.HasValue &&

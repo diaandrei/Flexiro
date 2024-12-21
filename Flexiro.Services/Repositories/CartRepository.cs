@@ -33,8 +33,8 @@ namespace Flexiro.Services.Repositories
             {
                 UserId = userId,
                 CartItems = new List<CartItem>(),
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
             };
             await _unitOfWork.Repository.AddAsync(cart);
             return cart;
@@ -54,7 +54,7 @@ namespace Flexiro.Services.Repositories
                 existingCartItem.PricePerUnit = originalPrice;
                 existingCartItem.DiscountAmount = discountAmount * itemRequest.Quantity;
                 existingCartItem.TotalPrice = priceAfterDiscount * itemRequest.Quantity;
-                existingCartItem.UpdatedAt = DateTime.UtcNow;
+                existingCartItem.UpdatedAt = DateTime.Now;
                 _unitOfWork.Repository.Update(existingCartItem);
                 return existingCartItem;
             }
@@ -69,8 +69,8 @@ namespace Flexiro.Services.Repositories
                     PricePerUnit = originalPrice,
                     DiscountAmount = discountAmount * itemRequest.Quantity,
                     TotalPrice = priceAfterDiscount * itemRequest.Quantity,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now
                 };
                 await _unitOfWork.Repository.AddAsync(newCartItem);
                 return newCartItem;
@@ -82,7 +82,7 @@ namespace Flexiro.Services.Repositories
             cart.ItemsTotal = cart.CartItems.Sum(ci => ci.PricePerUnit * ci.Quantity);
             cart.TotalDiscount = cart.CartItems.Sum(ci => ci.DiscountAmount ?? 0);
             cart.TotalAmount = cart.CartItems.Sum(ci => ci.TotalPrice) + (cart.Tax ?? 0) + (cart.ShippingCost ?? 0);
-            cart.UpdatedAt = DateTime.UtcNow;
+            cart.UpdatedAt = DateTime.Now;
             await _unitOfWork.Repository.CompleteAsync();
         }
 
@@ -210,7 +210,7 @@ namespace Flexiro.Services.Repositories
             cartItem.PricePerUnit = originalPrice;
             cartItem.DiscountAmount = discountAmount * quantity;
             cartItem.TotalPrice = priceAfterDiscount * quantity;
-            cartItem.UpdatedAt = DateTime.UtcNow;
+            cartItem.UpdatedAt = DateTime.Now;
 
             _unitOfWork.Repository.Update(cartItem);
 
@@ -219,7 +219,7 @@ namespace Flexiro.Services.Repositories
             cart.ItemsTotal = cart.CartItems.Sum(ci => ci.PricePerUnit * ci.Quantity);
             cart.TotalDiscount = cart.CartItems.Sum(ci => ci.DiscountAmount ?? 0);
             cart.TotalAmount = cart.CartItems.Sum(ci => ci.TotalPrice) + (cart.Tax ?? 0) + (cart.ShippingCost ?? 0);
-            cart.UpdatedAt = DateTime.UtcNow;
+            cart.UpdatedAt = DateTime.Now;
 
             _unitOfWork.Repository.Update(cart);
 
@@ -259,7 +259,7 @@ namespace Flexiro.Services.Repositories
                 cart.ItemsTotal = cart.CartItems.Sum(ci => ci.PricePerUnit * ci.Quantity);
                 cart.TotalDiscount = cart.CartItems.Sum(ci => ci.DiscountAmount ?? 0);
                 cart.TotalAmount = (decimal)(cart.ItemsTotal - cart.TotalDiscount + (cart.Tax ?? 0) + (cart.ShippingCost ?? 0))!;
-                cart.UpdatedAt = DateTime.UtcNow;
+                cart.UpdatedAt = DateTime.Now;
 
                 // Update the cart with recalculated totals
                 _unitOfWork.Repository.Update(cart);
@@ -293,7 +293,7 @@ namespace Flexiro.Services.Repositories
                 cart.ItemsTotal = 0;
                 cart.TotalAmount = 0;
                 cart.CartItems.Clear();
-                cart.UpdatedAt = DateTime.UtcNow;
+                cart.UpdatedAt = DateTime.Now;
 
                 // Hard delete the cart itself
                 _unitOfWork.Repository.HardDelete(cart);

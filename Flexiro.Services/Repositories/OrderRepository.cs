@@ -81,7 +81,7 @@ namespace Flexiro.Services.Repositories
                     Status = OrderStatus.New,
                     PaymentStatus = "Unpaid",
                     PaymentMethod = paymentMethod,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.Now
                 };
 
                 await _unitOfWork.Repository.AddAsync(order);
@@ -100,7 +100,7 @@ namespace Flexiro.Services.Repositories
                         DiscountAmount = item.DiscountAmount,
                         TotalPrice = (item.Product.PricePerItem * item.Quantity) - (item.DiscountAmount ?? 0),
                         Status = OrderStatus.New,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = DateTime.Now
                     };
 
                     await _unitOfWork.Repository.AddAsync(orderDetail);
@@ -139,7 +139,7 @@ namespace Flexiro.Services.Repositories
 
         public string GenerateOrderNumber()
         {
-            return $"ORD-{DateTime.UtcNow.Ticks}";
+            return $"ORD-{DateTime.Now.Ticks}";
         }
 
         public decimal CalculateShippingCost(Cart cart)

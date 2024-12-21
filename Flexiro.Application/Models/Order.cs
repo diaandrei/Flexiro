@@ -37,8 +37,8 @@ namespace Flexiro.Application.Models
         public string? PaymentMethod { get; set; }
 
         public DateTime? DeliveryDate { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime? UpdatedAt { get; set; } = DateTime.Now;
 
         public virtual ICollection<OrderDetails> OrderDetails { get; set; }
         public virtual Payment Payment { get; set; }
