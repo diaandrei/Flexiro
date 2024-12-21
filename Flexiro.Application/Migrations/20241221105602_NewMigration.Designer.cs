@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Flexiro.Application.Migrations
 {
     [DbContext(typeof(FlexiroDbContext))]
-    [Migration("20241206172230_InitialMigration")]
-    partial class InitialMigration
+    [Migration("20241221105602_NewMigration")]
+    partial class NewMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
