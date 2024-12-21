@@ -68,7 +68,7 @@ namespace Flexiro.Services.Services
                 response.Success = true;
                 response.Content = orderResponse;
                 response.Title = "Order Placed Successfully";
-                response.Description = "Your order has been successfully placed.";
+                response.Description = "Your order has been placed successfully.";
             }
             catch (Exception ex)
             {
@@ -140,6 +140,43 @@ namespace Flexiro.Services.Services
             order.Status = (OrderStatus)request.NewStatus;
             await _orderRepository.UpdateOrderAsync(order);
             return true;
+        }
+
+        public async Task<List<CustomerOrderResponseDto>> GetOrdersByCustomerAsync(string userId)
+        {
+            var orders = await _orderRepository.GetOrdersByCustomerAsync(userId);
+
+            if (orders == null! || !orders.Any())
+                return new List<CustomerOrderResponseDto>();
+
+            return orders.Select(order => new CustomerOrderResponseDto
+            {
+                OrderId = order.OrderId,
+                OrderNumber = order.OrderNumber,
+                ItemsTotal = order.ItemsTotal,
+                ShippingCost = order.ShippingCost,
+                Tax = order.Tax,
+                TotalAmount = order.TotalAmount,
+                Status = order.Status.ToString(),
+                PaymentStatus = order.PaymentStatus!,
+                PaymentMethod = order.PaymentMethod!,
+                CreatedAt = order.CreatedAt,
+                ShippingAddress = new ShippingAddressResponseDto
+                {
+                    Address = order.ShippingAddress.Address,
+                    City = order.ShippingAddress.City,
+                    ZipCode = order.ShippingAddress.ZipCode
+                },
+                OrderItems = order.OrderDetails.Select(item => new CustomerOrderItemResponseDto
+                {
+                    ProductId = item.ProductId,
+                    ProductName = item.Product.ProductName,
+                    Quantity = item.Quantity,
+                    PricePerUnit = item.PricePerUnit,
+                    DiscountAmount = item.DiscountAmount ?? 0,
+                    TotalPrice = item.TotalPrice
+                }).ToList()
+            }).ToList();
         }
     }
 }
