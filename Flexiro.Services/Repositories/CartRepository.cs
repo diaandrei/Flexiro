@@ -43,11 +43,17 @@ namespace Flexiro.Services.Repositories
         public async Task<CartItem> AddOrUpdateCartItemAsync(Cart cart, CartItemRequestModel itemRequest, Product product)
         {
             var originalPrice = product.PricePerItem;
-            var discountAmount = originalPrice * (product.DiscountPercentage ?? 0) / 100;
-            var priceAfterDiscount = originalPrice - discountAmount;
+            decimal discountAmount = 0;
+            decimal priceAfterDiscount = originalPrice;
+
+            // Check if a discount is available
+            if (product.DiscountPercentage.HasValue && product.DiscountPercentage > 0)
+            {
+                discountAmount = originalPrice * product.DiscountPercentage.Value / 100;
+                priceAfterDiscount = originalPrice - discountAmount;
+            }
 
             var existingCartItem = cart.CartItems.FirstOrDefault(ci => ci.ProductId == itemRequest.ProductId && ci.ShopId == itemRequest.ShopId);
-
             if (existingCartItem != null)
             {
                 existingCartItem.Quantity = itemRequest.Quantity;
@@ -55,7 +61,9 @@ namespace Flexiro.Services.Repositories
                 existingCartItem.DiscountAmount = discountAmount * itemRequest.Quantity;
                 existingCartItem.TotalPrice = priceAfterDiscount * itemRequest.Quantity;
                 existingCartItem.UpdatedAt = DateTime.Now;
+
                 _unitOfWork.Repository.Update(existingCartItem);
+
                 return existingCartItem;
             }
             else
@@ -69,8 +77,8 @@ namespace Flexiro.Services.Repositories
                     PricePerUnit = originalPrice,
                     DiscountAmount = discountAmount * itemRequest.Quantity,
                     TotalPrice = priceAfterDiscount * itemRequest.Quantity,
-                    CreatedAt = DateTime.Now,
-                    UpdatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
                 };
                 await _unitOfWork.Repository.AddAsync(newCartItem);
                 return newCartItem;
@@ -80,6 +88,7 @@ namespace Flexiro.Services.Repositories
         public async Task UpdateCartTotalsAsync(Cart cart)
         {
             cart.ItemsTotal = cart.CartItems.Sum(ci => ci.PricePerUnit * ci.Quantity);
+            cart.ShippingCost = 5;
             cart.TotalDiscount = cart.CartItems.Sum(ci => ci.DiscountAmount ?? 0);
             cart.TotalAmount = cart.CartItems.Sum(ci => ci.TotalPrice) + (cart.Tax ?? 0) + (cart.ShippingCost ?? 0);
             cart.UpdatedAt = DateTime.Now;
@@ -107,7 +116,7 @@ namespace Flexiro.Services.Repositories
                                     .ThenInclude(p => p.ProductImages)
                                 .FirstOrDefaultAsync();
 
-                if (cart == null) return null;
+                if (cart == null) return null!;
 
                 // Map cart data to MainCartModel
                 return new MainCartModel
@@ -154,7 +163,7 @@ namespace Flexiro.Services.Repositories
             }
             catch (Exception ex)
             {
-                // Log error if necessary
+                // Log error
                 _logger.LogError(ex, "Error occurred while calculating the total for products: {ProductIds}", string.Join(", ", productIds));
                 throw;
             }
@@ -264,8 +273,14 @@ namespace Flexiro.Services.Repositories
                 // Update the cart with recalculated totals
                 _unitOfWork.Repository.Update(cart);
             }
+
             await _unitOfWork.Repository.CompleteAsync();
 
+            if (cart != null!)
+            {
+                cartItem.Cart = cart;
+
+            }
             return cartItem;  // Return the removed cart item
         }
 
@@ -368,9 +383,9 @@ namespace Flexiro.Services.Repositories
                 // Sum up the quantity of all items in the cart
                 return cart.CartItems.Sum(ci => ci.Quantity);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                throw; // Let the service handle logging or exceptions
+                throw ex; // Let the service handle logging or exceptions
             }
         }
     }
