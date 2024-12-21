@@ -113,6 +113,7 @@ namespace Flexiro.API.Controllers
         public async Task<IActionResult> SearchProducts([FromQuery] string productName)
         {
             var response = await _productService.SearchProductsByNameAsync(productName);
+
             if (response.Success)
             {
                 return Ok(response);
@@ -153,6 +154,7 @@ namespace Flexiro.API.Controllers
             {
                 return Ok(response);
             }
+
             return BadRequest(response);
         }
 
@@ -206,6 +208,42 @@ namespace Flexiro.API.Controllers
                 return NotFound(new { success = false, message = "Order not found or status update failed." });
 
             return Ok(new { success = true, message = "Order status updated successfully." });
+        }
+
+        [HttpGet("wishlist-products/{shopId}")]
+        public async Task<IActionResult> GetWishlistProducts(int shopId)
+        {
+            var response = await _productService.GetWishlistProductsByShopAsync(shopId);
+
+            if (!response.Success)
+            {
+                return BadRequest(new
+                {
+                    response.Title,
+                    response.Description,
+                    response.ExceptionMessage
+                });
+            }
+
+            return Ok(response);
+        }
+
+        [HttpPut("product/update-discount/{productId}")]
+        public async Task<IActionResult> AddOrUpdateDiscount(int productId, [FromBody] UpdateDiscountDto discountDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var result = await _productService.AddOrUpdateDiscountPercentageAsync(productId, discountDto);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+
+            return BadRequest(result);
         }
     }
 }
