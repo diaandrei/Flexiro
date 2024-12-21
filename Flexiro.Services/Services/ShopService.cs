@@ -7,7 +7,7 @@ using Flexiro.Contracts.Responses;
 using Flexiro.Services.Repositories;
 using Flexiro.Services.Services.Interfaces;
 
-namespace Flexiro.Services
+namespace Flexiro.Services.Services
 {
     public class ShopService : IShopService
     {

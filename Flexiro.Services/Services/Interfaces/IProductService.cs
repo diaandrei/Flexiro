@@ -21,5 +21,8 @@ namespace Flexiro.Services.Services.Interfaces
         Task<ResponseModel<List<ProductSaleResponseDto>>> GetSaleProductsAsync();
         Task<List<ProductTopRatedDto>> GetTopRatedAffordableProductsAsync();
         Task<ResponseModel<List<string>>> GetAllCategoryNamesAsync();
+        Task<ResponseModel<List<WishlistProductResponseDto>>> GetWishlistProductsByShopAsync(int shopId);
+        Task<ResponseModel<object>> AddOrUpdateDiscountPercentageAsync(int productId, UpdateDiscountDto discountDto);
+        Task<ResponseModel<List<WishlistProductResponseDto>>> GetWishlistProductsByUserAsync(string userId);
     }
 }
