@@ -15,5 +15,6 @@ namespace Flexiro.Services.Repositories
         Task<List<OrderDetailDto>> GetOrdersByShopAsync(int shopId);
         Task<Order> GetOrderByIdAsync(int orderId);
         Task UpdateOrderAsync(Order order);
+        Task<List<Order>> GetOrdersByCustomerAsync(string userId);
     }
 }

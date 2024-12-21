@@ -25,6 +25,7 @@ namespace Flexiro.Services.Repositories
         public async Task<Order> CreateOrderAsync(string userId, AddUpdateShippingAddressRequest shippingAddressDto, string paymentMethod)
         {
             await using var transaction = await _context.Database.BeginTransactionAsync();
+
             try
             {
                 var cart = await _unitOfWork.Repository.GetQueryable<Cart>()
@@ -38,6 +39,7 @@ namespace Flexiro.Services.Repositories
                 }
 
                 ShippingAddress? shippingAddress;
+
                 if (shippingAddressDto.AddToAddressBook)
                 {
                     shippingAddress = _mapper.Map<ShippingAddress>(shippingAddressDto);
@@ -224,6 +226,7 @@ namespace Flexiro.Services.Repositories
 
             return orders;
         }
+
         public async Task<(List<Order>, int)> GetDeliveredOrdersByShopAsync(int shopId)
         {
             var deliveredOrders = await _unitOfWork.Repository.GetQueryable<Order>()
@@ -273,10 +276,22 @@ namespace Flexiro.Services.Repositories
             return (await _unitOfWork.Repository.GetQueryable<Order>()
                 .FirstOrDefaultAsync(o => o.OrderId == orderId))!;
         }
+
         public async Task UpdateOrderAsync(Order order)
         {
             await _unitOfWork.Repository.UpdateAsync(order);
             await _unitOfWork.Repository.CompleteAsync();
+        }
+
+        public async Task<List<Order>> GetOrdersByCustomerAsync(string userId)
+        {
+            return await _context.Orders
+                .Include(o => o.OrderDetails)
+                .ThenInclude(od => od.Product)
+                .Include(o => o.ShippingAddress)
+                .Where(o => o.UserId == userId)
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync();
         }
     }
 }
