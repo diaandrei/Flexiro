@@ -1,14 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Flexiro.Application.DTOs;
+using Flexiro.Application.Models;
+using Flexiro.Contracts.Requests;
+using Flexiro.Contracts.Responses;
+using Flexiro.Identity;
+using Flexiro.Services.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Flexiro.Application.Models;
-using Flexiro.Contracts.Responses;
-using Flexiro.Application.DTOs;
+using Microsoft.AspNetCore.Mvc;
 using LoginRequest = Flexiro.Contracts.Requests.LoginRequest;
 using RegisterRequest = Flexiro.Contracts.Requests.RegisterRequest;
-using Flexiro.Identity;
-using Flexiro.Contracts.Requests;
-using Flexiro.Services.Services.Interfaces;
 
 namespace Flexiro.API.Controllers
 {
@@ -22,17 +22,19 @@ namespace Flexiro.API.Controllers
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IConfiguration _config;
         public readonly IShopService _shopService;
+        public readonly IBlobStorageService _blobStorageService;
 
-        public AccountController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, SignInManager<ApplicationUser> signInManager, IConfiguration config, IShopService shopService)
+        public AccountController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, SignInManager<ApplicationUser> signInManager, IConfiguration config, IShopService shopService, IBlobStorageService blobStorageService)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _signInManager = signInManager;
             _config = config;
             _shopService = shopService;
+            _blobStorageService = blobStorageService;
         }
 
-        [HttpPost("Register")]
+        [HttpPost("register")]
         public async Task<ResponseModel<string>> Register([FromBody] RegisterRequest model)
         {
             ResponseModel<string> response = new ResponseModel<string>();
@@ -41,48 +43,67 @@ namespace Flexiro.API.Controllers
             {
                 if (ModelState.IsValid)
                 {
-                    var user = new ApplicationUser
+                    var newUser = await _userManager.FindByEmailAsync(model.Email);
+
+                    if (newUser == null)
                     {
-                        UserName = model.Username,
-                        Email = model.Email,
-                        IsAdmin = false,
-                        IsSeller = false,
-                        CreatedAt = DateTime.Now
-                    };
-
-                    var result = await _userManager.CreateAsync(user, model.Password);
-
-                    if (result.Succeeded)
-                    {
-                        var roleExists = await _roleManager.RoleExistsAsync("Customer");
-
-                        if (!roleExists)
+                        var user = new ApplicationUser
                         {
-                            var roleResult = await _roleManager.CreateAsync(new IdentityRole("Customer"));
 
-                            if (!roleResult.Succeeded)
-                            {
-                                response.Title = "Error creating user role";
-                                return response;
-                            }
+                            UserName = model.Username,
+                            Email = model.Email,
+                            IsAdmin = false,
+                            IsSeller = false,
+                        };
+
+                        var result = await _userManager.CreateAsync(user, model.Password);
+
+                        if (!result.Succeeded)
+                        {
+                            response.Success = false;
+                            response.Title = string.Join(", ", result.Errors.Select(e => e.Description));
+                            response.Description = string.Join(", ", result.Errors.Select(e => e.Description));
+                            return response;
                         }
 
-                        // Assign the role to the user
-                        var addToRoleResult = await _userManager.AddToRoleAsync(user, "Customer");
-
-                        if (addToRoleResult.Succeeded)
+                        if (result.Succeeded)
                         {
-                            response.Title = "Signed up successfully";
-                            response.Success = true;
+                            var roleExists = await _roleManager.RoleExistsAsync("Customer");
+
+                            if (!roleExists)
+                            {
+                                var roleResult = await _roleManager.CreateAsync(new IdentityRole("Customer"));
+
+                                if (!roleResult.Succeeded)
+                                {
+                                    response.Title = "Error creating user role";
+                                    response.Description = string.Join(", ", result.Errors.Select(e => e.Description));
+                                    return response;
+                                }
+                            }
+
+                            // Assign the role to the user
+                            var addToRoleResult = await _userManager.AddToRoleAsync(user, "Customer");
+
+                            if (addToRoleResult.Succeeded)
+                            {
+                                response.Title = "Signed up successfully";
+                                response.Success = true;
+                            }
+                            else
+                            {
+                                response.Title = "Error assigning user role";
+                            }
                         }
                         else
                         {
-                            response.Title = "User role assignment failed.";
+                            response.Title = string.Join(", ", result.Errors.Select(e => e.Description));
                         }
                     }
+
                     else
                     {
-                        response.Title = string.Join(", ", result.Errors.Select(e => e.Description));
+                        response.Title = "An account with this email already exists.";
                     }
                 }
                 else
@@ -95,10 +116,11 @@ namespace Flexiro.API.Controllers
                 response.Success = false;
                 response.Title = ex.Message;
             }
+
             return response;
         }
 
-        [HttpPost("Login")]
+        [HttpPost("login")]
         public async Task<ResponseModel<LoginDto>> Login([FromBody] LoginRequest model)
         {
             ResponseModel<LoginDto> response = new ResponseModel<LoginDto>
@@ -106,11 +128,13 @@ namespace Flexiro.API.Controllers
                 Title = "Something went wrong.",
                 Success = false
             };
+
             try
             {
                 if (ModelState.IsValid)
                 {
                     var user = await _userManager.FindByEmailAsync(model.Email);
+
                     if (user != null)
                     {
                         var result = await _signInManager.PasswordSignInAsync(user.UserName!, model.Password, false, false);
@@ -119,42 +143,78 @@ namespace Flexiro.API.Controllers
                         {
                             // Get the roles of the user
                             var roles = await _userManager.GetRolesAsync(user);
-                            var role = roles.FirstOrDefault(); // Assuming one role per user, adjust as needed
-                            var roleId = string.Empty;
+                            var role = roles.FirstOrDefault();
 
-                            if (!string.IsNullOrEmpty(role))
+                            string userRole = role?.ToLower() switch
                             {
-                                var roleObj = await _roleManager.FindByNameAsync(role);
-                                roleId = roleObj?.Id;
-                            }
+                                "admin" => "Admin",
+                                "seller" => "Seller",
+                                "customer" => "Customer",
+                                _ => "Customer"
+                            };
 
-                            TokenGenerationRequest jwtReq = new TokenGenerationRequest
+                            // Generate JWT token
+                            var jwtReq = new TokenGenerationRequest
                             {
                                 UserId = user.Id,
                                 Email = model.Email,
-                                RoleId = roleId!,
+                                RoleId = (!string.IsNullOrEmpty(role) ? (await _roleManager.FindByNameAsync(role))?.Id : string.Empty)!,
                                 IsAdmin = user.IsAdmin,
                                 IsSeller = user.IsSeller,
                             };
 
                             var token = JwtTokenGenerator.GenerateToken(jwtReq);
 
-                            LoginDto login = new LoginDto
+                            // Build the login DTO based on role
+                            LoginDto login;
+                            if (userRole == "Seller")
                             {
-                                Token = token,
-                                IsAdmin = user.IsAdmin,
-                                IsSeller = user.IsSeller,
-                                Name = user.FirstName + " " + user.LastName,
-                                Email = user.Email!
-                            };
+                                // Fetch shop details for seller
+                                var shop = await _shopService.GetShopByOwnerIdAsync(user.Id);
+                                if (shop?.Content == null)
+                                {
+                                    response.Title = "Shop not found for the seller.";
+                                    return response;
+                                }
+
+                                login = new LoginDto
+                                {
+                                    Token = token,
+                                    Id = user.Id,
+                                    IsAdmin = user.IsAdmin,
+                                    Role = userRole,
+                                    IsSeller = true,
+                                    Name = $"{user.FirstName} {user.LastName}",
+                                    Email = user.Email!,
+                                    AdditionalInfo = new SellerLoginDto
+                                    {
+                                        ShopId = shop.Content.ShopId,
+                                        OwnerName = shop.Content.OwnerName,
+                                        ShopName = shop.Content.ShopName
+                                    }
+                                };
+                            }
+                            else
+                            {
+                                login = new LoginDto
+                                {
+                                    Token = token,
+                                    Id = user.Id,
+                                    IsAdmin = user.IsAdmin,
+                                    Role = userRole,
+                                    IsSeller = user.IsSeller,
+                                    Name = $"{user.FirstName} {user.LastName}",
+                                    Email = user.Email!
+                                };
+                            }
 
                             response.Content = login;
                             response.Success = true;
-                            response.Title = "Success! You’re now logged in.";
+                            response.Title = "Login successful";
                         }
                         else
                         {
-                            response.Title = "Incorrect email or password.";
+                            response.Title = "Incorrect email or password. Please try again.";
                         }
                     }
                     else
@@ -172,6 +232,7 @@ namespace Flexiro.API.Controllers
                 response.Success = false;
                 response.Title = ex.Message;
             }
+
             return response;
         }
 
@@ -185,7 +246,7 @@ namespace Flexiro.API.Controllers
                 // 1. Check if a user with this email already exist
                 var user = await _userManager.FindByEmailAsync(model.Email);
 
-                if (user == null)
+                if (user is null)
                 {
                     // Create new ApplicationUser for the seller
                     user = new ApplicationUser
@@ -207,7 +268,7 @@ namespace Flexiro.API.Controllers
                     if (!result.Succeeded)
                     {
                         response.Success = false;
-                        response.Title = "Failed to create user account";
+                        response.Title = "Failed to create your account. Please try again.";
                         response.Description = string.Join(", ", result.Errors.Select(e => e.Description));
                         return response;
                     }
@@ -225,24 +286,14 @@ namespace Flexiro.API.Controllers
                         }
                     }
 
-                    string logoPath = null!;
+                    string logoUrl = null!;
 
                     if (model.ShopLogo != null!)
                     {
-                        // Generate a unique file name and path
-                        var fileName = $"{Guid.NewGuid()}_{model.ShopLogo.FileName}";
-                        var filePath = Path.Combine("wwwroot/uploads/logos", fileName);
-                        if (!Directory.Exists(Path.Combine("wwwroot", "uploads", "logos")))
-                        {
-                            Directory.CreateDirectory(Path.Combine("wwwroot", "uploads", "logos"));
-                        }
-                        // Save the file to the server
-                        await using (var stream = new FileStream(filePath, FileMode.Create))
-                        {
-                            await model.ShopLogo.CopyToAsync(stream);
-                        }
+                        await using var stream = model.ShopLogo.OpenReadStream();
 
-                        logoPath = $"/uploads/logos/{fileName}";
+                        var imageUrl = await _blobStorageService.UploadImageAsync(stream, model.ShopLogo.FileName);
+                        logoUrl = imageUrl;
                     }
 
                     // 3. Create the shop linked to the user
@@ -252,22 +303,24 @@ namespace Flexiro.API.Controllers
                         OwnerName = model.OwnerName,
                         ShopName = model.StoreName,
                         ShopDescription = model.StoreDescription,
-                        ShopLogo = logoPath,
+                        ShopLogo = logoUrl,
                         AdminStatus = ShopAdminStatus.Pending,
                         SellerStatus = ShopSellerStatus.Open,
                         Slogan = model.Slogan,
                         OpeningDate = model.OpeningDate,
                         OpeningTime = model.OpeningTime,
                         ClosingTime = model.ClosingTime,
-                        CreatedAt = DateTime.Now,
-                        IsSeller = true
+                        CreatedAt = DateTime.UtcNow,
+                        IsSeller = true,
+                        OpeningDay = model.OpeningDay,
+                        ClosingDay = model.ClosingDay,
                     };
 
                     // Save the shop to the database
                     var resultShop = await _shopService.CreateShopAsync(shop);
 
                     response.Success = true;
-                    response.Title = "Seller registered successfully";
+                    response.Title = "Seller registration was successful.";
                 }
             }
             catch (Exception ex)
@@ -275,6 +328,91 @@ namespace Flexiro.API.Controllers
                 response.Success = false;
                 response.Title = "Registration failed";
                 response.Description = ex.Message;
+            }
+
+            return response;
+        }
+
+        [HttpPut("UpdateSellerContactInfo")]
+        public async Task<ResponseModel<ApplicationUser>> UpdateSellerContactInfo([FromBody] UpdateContactInfoRequest model)
+        {
+            var response = new ResponseModel<ApplicationUser>();
+
+            try
+            {
+                // Find the seller by ID
+                var user = await _userManager.FindByIdAsync(model.SellerId);
+
+                if (user == null)
+                {
+                    response.Success = false;
+                    response.Title = "Seller Not Found";
+                    response.Description = $"Seller with ID '{model.SellerId}' does not exist.";
+                    return response;
+                }
+
+                // Check if the provided email is different from the seller's current email
+                if (!string.Equals(user.Email, model.Email, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Check if the email already exists for another user
+                    var existingUser = await _userManager.FindByEmailAsync(model.Email);
+                    if (existingUser != null && existingUser.Id != model.SellerId)
+                    {
+                        response.Success = false;
+                        response.Title = "Email Already Exists";
+                        response.Description = $"The email '{model.Email}' is already associated with another account.";
+                        return response;
+                    }
+                }
+
+                // Update only if there are changes
+                bool isUpdated = false;
+
+                if (!string.Equals(user.Email, model.Email, StringComparison.OrdinalIgnoreCase))
+                {
+                    user.Email = model.Email;
+                    isUpdated = true;
+                }
+
+                if (!string.Equals(user.PhoneNumber, model.PhoneNumber, StringComparison.OrdinalIgnoreCase))
+                {
+                    user.PhoneNumber = model.PhoneNumber;
+                    isUpdated = true;
+                }
+
+                if (!isUpdated)
+                {
+                    response.Success = false;
+                    response.Title = "No Changes Detected";
+                    response.Description = "No changes were detected in the provided information.";
+                    return response;
+                }
+
+                // Update the user
+                var updateResult = await _userManager.UpdateAsync(user);
+
+                // Handle potential errors during update
+                if (!updateResult.Succeeded)
+                {
+                    response.Success = false;
+                    response.Title = "Update Failed";
+                    response.Description = string.Join(", ", updateResult.Errors.Select(e => e.Description));
+                    return response;
+                }
+
+                // Set successful response
+                response.Success = true;
+                response.Content = user;
+                response.Title = "Contact Info Updated";
+                response.Description = "Seller contact information has been updated successfully.";
+            }
+            catch (Exception ex)
+            {
+                // Handle unexpected errors
+                response.Success = false;
+                response.Title = "Error Updating Contact Info";
+                response.Description = "An unexpected error occurred while updating contact information.";
+                response.ExceptionMessage = ex.Message;
             }
 
             return response;
