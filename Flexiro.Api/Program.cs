@@ -84,12 +84,13 @@ builder.Services.AddControllers()
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowLocalhost3000",
+    options.AddPolicy("AllowLocalhostAndProduction",
         builder => builder
-            .WithOrigins("http://localhost:3000")
+            .WithOrigins("http://localhost:3000", "https://flexiroapi-d7akfuaug8d7esdg.uksouth-01.azurewebsites.net")
             .AllowAnyMethod()
             .AllowAnyHeader());
 });
+
 
 var app = builder.Build();
 
@@ -110,6 +111,8 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseStaticFiles();
 app.UseAuthorization();
+
+app.UseCors("AllowLocalhostAndProduction");
 
 app.MapControllers();
 

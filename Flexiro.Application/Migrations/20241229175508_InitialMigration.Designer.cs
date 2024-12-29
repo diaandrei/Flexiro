@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Flexiro.Application.Migrations
 {
     [DbContext(typeof(FlexiroDbContext))]
-    [Migration("20241221105602_NewMigration")]
-    partial class NewMigration
+    [Migration("20241229175508_InitialMigration")]
+    partial class InitialMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -118,6 +118,29 @@ namespace Flexiro.Application.Migrations
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = "53f83034-79e3-4066-b629-fe1238831318",
+                            AccessFailedCount = 0,
+                            ConcurrencyStamp = "89bd39a3-f797-4ce9-a343-b7ad9d39eca4",
+                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Email = "admin@flexiro.com",
+                            EmailConfirmed = true,
+                            FirstName = "Admin",
+                            IsAdmin = true,
+                            IsSeller = false,
+                            LastName = "Admin",
+                            LockoutEnabled = false,
+                            NormalizedEmail = "ADMIN@FLEXIRO.COM",
+                            NormalizedUserName = "ADMIN@FLEXIRO.COM",
+                            PasswordHash = "AQAAAAIAAYagAAAAEI8O4MkLndXnejIhn1dA98U6QoPQCk0s9PjHmKBainUi9RKwM9syvmWKn12dZZJjsQ==",
+                            PhoneNumberConfirmed = false,
+                            SecurityStamp = "3b3d4178-d777-4bae-8dc5-e0fe1de67b0c",
+                            TwoFactorEnabled = false,
+                            UserName = "admin@flexiro.com"
+                        });
                 });
 
             modelBuilder.Entity("Flexiro.Application.Models.Cart", b =>
@@ -701,6 +724,26 @@ namespace Flexiro.Application.Migrations
                         .HasFilter("[NormalizedName] IS NOT NULL");
 
                     b.ToTable("AspNetRoles", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = "1",
+                            Name = "Admin",
+                            NormalizedName = "ADMIN"
+                        },
+                        new
+                        {
+                            Id = "2",
+                            Name = "Seller",
+                            NormalizedName = "SELLER"
+                        },
+                        new
+                        {
+                            Id = "3",
+                            Name = "Customer",
+                            NormalizedName = "CUSTOMER"
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -788,6 +831,13 @@ namespace Flexiro.Application.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("AspNetUserRoles", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            UserId = "53f83034-79e3-4066-b629-fe1238831318",
+                            RoleId = "1"
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
