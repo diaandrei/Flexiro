@@ -11,6 +11,7 @@ namespace Flexiro.Application.Models
         [Required]
         public string UserId { get; set; }
         public virtual ApplicationUser User { get; set; }
+        public string? GuestUserId { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal ItemsTotal { get; set; } = 0;

@@ -20,8 +20,6 @@ namespace Flexiro.Application.Models
         public decimal Weight { get; set; }
 
         public string ProductCondition { get; set; }
-        public bool ImportedItem { get; set; }
-
         public virtual ICollection<ProductImage> ProductImages { get; set; }
         public int StockQuantity { get; set; }
         public int? TotalSold { get; set; }
