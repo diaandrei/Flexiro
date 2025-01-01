@@ -14,7 +14,6 @@ namespace Flexiro.Contracts.Requests
         public int MinimumPurchase { get; set; }
         public required string ProductCondition { get; set; }
         public int Stock { get; set; }
-        public bool ImportedItem { get; set; }
 
         [SwaggerSchema("Upload product images", Format = "binary")]
         public List<IFormFile> ProductImages { get; set; }
