@@ -52,7 +52,7 @@ namespace Flexiro.Services.Repositories
                     shippingAddress = await _unitOfWork.Repository.GetQueryable<ShippingAddress>()
                         .FirstOrDefaultAsync(addr => addr.UserId == userId &&
                                                       addr.Address == shippingAddressDto.Address &&
-                                                      addr.ZipCode == shippingAddressDto.ZipCode);
+                                                      addr.Postcode == shippingAddressDto.Postcode);
 
                     if (shippingAddress == null)
                     {
@@ -188,8 +188,7 @@ namespace Flexiro.Services.Repositories
                         Email = o.ShippingAddress.Email,
                         Address = o.ShippingAddress.Address,
                         City = o.ShippingAddress.City,
-                        State = o.ShippingAddress.State,
-                        ZipCode = o.ShippingAddress.ZipCode,
+                        Postcode = o.ShippingAddress.Postcode,
                         Country = o.ShippingAddress.Country,
                         PhoneNumber = o.ShippingAddress.PhoneNumber,
                         Note = o.ShippingAddress.Note
@@ -201,8 +200,7 @@ namespace Flexiro.Services.Repositories
                         Email = o.BillingAddress.Email,
                         Address = o.BillingAddress.Address,
                         City = o.BillingAddress.City,
-                        State = o.BillingAddress.State,
-                        ZipCode = o.BillingAddress.ZipCode,
+                        Postcode = o.BillingAddress.Postcode,
                         Country = o.BillingAddress.Country,
                         PhoneNumber = o.BillingAddress.PhoneNumber,
                         Note = o.BillingAddress.Note

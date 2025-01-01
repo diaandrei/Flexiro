@@ -217,7 +217,6 @@ namespace Flexiro.Services.Repositories
                     ? product.ProductImages.First().Path : string.Empty,
                     Weight = product.Weight,
                     ProductCondition = product.ProductCondition,
-                    ImportedItem = product.ImportedItem,
                     StockQuantity = product.StockQuantity,
                     SKU = product.SKU,
                     Status = product.Status,
@@ -296,7 +295,6 @@ namespace Flexiro.Services.Repositories
                     ProductId = product.ProductId,
                     UserName = review.User.UserName ?? "Anonymous",
                     Rating = review.Rating ?? 0,
-                    Comment = review.Comment ?? "No comment provided."
 
                 }).ToList()
             };

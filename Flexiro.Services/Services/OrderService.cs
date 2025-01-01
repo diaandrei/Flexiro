@@ -165,7 +165,7 @@ namespace Flexiro.Services.Services
                 {
                     Address = order.ShippingAddress.Address,
                     City = order.ShippingAddress.City,
-                    ZipCode = order.ShippingAddress.ZipCode
+                    Postcode = order.ShippingAddress.Postcode
                 },
                 OrderItems = order.OrderDetails.Select(item => new CustomerOrderItemResponseDto
                 {

@@ -53,7 +53,6 @@ namespace Flexiro.Services.Services
                 {
                     // Update existing review
                     existingReview.Rating = review.Rating;
-                    existingReview.Comment = review.Comment;
                     await _reviewRepository.UpdateReviewAsync(existingReview);
 
                     response.Success = true;
@@ -63,7 +62,6 @@ namespace Flexiro.Services.Services
                     {
                         ReviewId = existingReview.ReviewId,
                         Rating = existingReview.Rating ?? 0,
-                        Comment = existingReview.Comment,
                         ProductId = existingReview.ProductId,
                         UserId = existingReview.UserId,
                         UserName = existingReview.User?.UserName!
@@ -76,7 +74,6 @@ namespace Flexiro.Services.Services
                     {
                         ProductId = review.ProductId,
                         Rating = review.Rating,
-                        Comment = review.Comment,
                         UserId = review.UserId
                     };
 
@@ -89,7 +86,6 @@ namespace Flexiro.Services.Services
                     {
                         ReviewId = newReview.ReviewId,
                         Rating = newReview.Rating ?? 0,
-                        Comment = newReview.Comment,
                         ProductId = newReview.ProductId,
                         UserId = newReview.UserId,
                         UserName = newReview.User?.UserName!

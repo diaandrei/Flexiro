@@ -27,7 +27,6 @@ namespace Flexiro.Api.AutoMapper
             CreateMap<ProductCreateDto, Product>()
                 .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Name))
                 .ForMember(dest => dest.ProductImages, opt => opt.Ignore())
-                .ForMember(dest => dest.MinimumPurchaseQuantity, opt => opt.MapFrom(src => src.MinimumPurchase))
                 .ForMember(dest => dest.StockQuantity, opt => opt.MapFrom(src => src.Stock))
                 .ForMember(dest => dest.ProductId, opt => opt.Ignore())
                 .ForMember(dest => dest.TotalSold, opt => opt.Ignore())
@@ -38,7 +37,6 @@ namespace Flexiro.Api.AutoMapper
 
             CreateMap<Product, ProductResponseDto>()
                 .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.ProductName))
-                .ForMember(dest => dest.MinimumPurchaseQuantity, opt => opt.MapFrom(src => src.MinimumPurchaseQuantity))
                 .ForMember(dest => dest.StockQuantity, opt => opt.MapFrom(src => src.StockQuantity))
                 .ForMember(dest => dest.ProductImageUrls, opt => opt.MapFrom(src => src.ProductImages.Select(pi => pi.Path).ToList())); ;
 
@@ -83,8 +81,7 @@ namespace Flexiro.Api.AutoMapper
                     .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Email))
                     .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address))
                     .ForMember(dest => dest.City, opt => opt.MapFrom(src => src.City))
-                    .ForMember(dest => dest.State, opt => opt.MapFrom(src => src.State))
-                    .ForMember(dest => dest.ZipCode, opt => opt.MapFrom(src => src.ZipCode))
+                    .ForMember(dest => dest.Postcode, opt => opt.MapFrom(src => src.Postcode))
                     .ForMember(dest => dest.Country, opt => opt.MapFrom(src => src.Country))
                     .ForMember(dest => dest.PhoneNumber, opt => opt.MapFrom(src => src.PhoneNumber))
                     .ForMember(dest => dest.Note, opt => opt.MapFrom(src => src.Note));
@@ -100,7 +97,7 @@ namespace Flexiro.Api.AutoMapper
                 .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product.ProductName))
                 .ForMember(dest => dest.ProductDescription, opt => opt.MapFrom(src => src.Product.Description))
                 .ForMember(dest => dest.Price, opt => opt.MapFrom(src => src.Product.PricePerItem))
-                .ForMember(dest => dest.MainImage, opt => opt.MapFrom(src => src.Product.ProductImages.FirstOrDefault().Path)) 
+                .ForMember(dest => dest.MainImage, opt => opt.MapFrom(src => src.Product.ProductImages.FirstOrDefault().Path))
                 .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.Product.Category.Name))
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt));
         }

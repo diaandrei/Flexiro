@@ -12,7 +12,7 @@ namespace Flexiro.Contracts.Requests
         public required string ContactNo { get; set; }
         public required string Country { get; set; }
         public required string City { get; set; }
-        public required string ZipCode { get; set; }
+        public required string Postcode { get; set; }
         public required string StoreDescription { get; set; }
         public required string Email { get; set; }
         public required string Password { get; set; }

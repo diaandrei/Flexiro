@@ -8,7 +8,6 @@ namespace Flexiro.Contracts.Responses
         public required string ProductName { get; set; }
         public string? Description { get; set; }
         public decimal PricePerItem { get; set; }
-        public int MinimumPurchaseQuantity { get; set; }
         public int ShopId { get; set; }
         public int CategoryId { get; set; }
         public string MainImage { get; set; }

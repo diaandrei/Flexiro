@@ -257,7 +257,7 @@ namespace Flexiro.API.Controllers
                         PhoneNumber = model.ContactNo,
                         Country = model.Country,
                         City = model.City,
-                        ZipCode = model.ZipCode,
+                        Postcode = model.Postcode,
                         IsSeller = true,
                         CreatedAt = DateTime.Now
                     };

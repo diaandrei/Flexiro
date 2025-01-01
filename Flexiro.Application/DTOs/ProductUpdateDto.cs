@@ -8,7 +8,6 @@ namespace Flexiro.Application.DTOs
         public string? ProductName { get; set; }
         public string? Description { get; set; }
         public decimal? PricePerItem { get; set; }
-        public int? MinimumPurchaseQuantity { get; set; }
         public decimal? Weight { get; set; }
         public string? ProductCondition { get; set; }
         public bool? ImportedItem { get; set; }

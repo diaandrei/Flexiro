@@ -14,8 +14,6 @@ namespace Flexiro.Application.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal PricePerItem { get; set; }
 
-        public int MinimumPurchaseQuantity { get; set; }
-
         [Column(TypeName = "decimal(18,4)")]
         public decimal Weight { get; set; }
 
