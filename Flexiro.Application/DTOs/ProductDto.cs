@@ -9,7 +9,6 @@
         public int MinimumPurchase { get; set; }
         public string ProductCondition { get; set; }
         public int Stock { get; set; }
-        public bool ImportedItem { get; set; }
         public List<string> Images { get; set; }
         public string Description { get; set; }
         public List<string> Videos { get; set; }
