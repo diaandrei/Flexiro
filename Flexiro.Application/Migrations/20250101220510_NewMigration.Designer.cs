@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Flexiro.Application.Migrations
 {
     [DbContext(typeof(FlexiroDbContext))]
-    [Migration("20250101220122_InitialMigration")]
-    partial class InitialMigration
+    [Migration("20250101220510_NewMigration")]
+    partial class NewMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -122,9 +122,9 @@ namespace Flexiro.Application.Migrations
                     b.HasData(
                         new
                         {
-                            Id = "01b60732-0d0e-45d2-b754-cac753c2b3ea",
+                            Id = "bb23fa6a-6cb3-4f11-92e7-aee34f7fc334",
                             AccessFailedCount = 0,
-                            ConcurrencyStamp = "17ad5341-5827-43b3-a0e4-37c605aa5dba",
+                            ConcurrencyStamp = "d75c028c-87f9-40b5-bfb5-70c8901b026d",
                             CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "admin@flexiro.com",
                             EmailConfirmed = true,
@@ -135,9 +135,9 @@ namespace Flexiro.Application.Migrations
                             LockoutEnabled = false,
                             NormalizedEmail = "ADMIN@FLEXIRO.COM",
                             NormalizedUserName = "ADMIN@FLEXIRO.COM",
-                            PasswordHash = "AQAAAAIAAYagAAAAELr5l88LQgc7bU5fxG+yA/ASTvfBo2KuxNo9oneGk4P3Q/lV3BXJPecT29+QFuT96A==",
+                            PasswordHash = "AQAAAAIAAYagAAAAELrsZkAKe0j5f6UdW4wkawEhkbNOnZRX2Bm1g+HKnGC+UmUpyViDtMaBnJp0rts3fw==",
                             PhoneNumberConfirmed = false,
-                            SecurityStamp = "99fc9f17-c3cd-4506-a29f-4985451cfec0",
+                            SecurityStamp = "79a1cc12-223e-41ed-bae2-1217306c882f",
                             TwoFactorEnabled = false,
                             UserName = "admin@flexiro.com"
                         });
@@ -250,6 +250,39 @@ namespace Flexiro.Application.Migrations
                     b.HasKey("CategoryId");
 
                     b.ToTable("Categories");
+                });
+
+            modelBuilder.Entity("Flexiro.Application.Models.Notification", b =>
+                {
+                    b.Property<int>("NotificationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("NotificationId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NotificationType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("NotificationId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Notification");
                 });
 
             modelBuilder.Entity("Flexiro.Application.Models.Order", b =>
@@ -825,7 +858,7 @@ namespace Flexiro.Application.Migrations
                     b.HasData(
                         new
                         {
-                            UserId = "01b60732-0d0e-45d2-b754-cac753c2b3ea",
+                            UserId = "bb23fa6a-6cb3-4f11-92e7-aee34f7fc334",
                             RoleId = "1"
                         });
                 });
@@ -885,6 +918,17 @@ namespace Flexiro.Application.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("Shop");
+                });
+
+            modelBuilder.Entity("Flexiro.Application.Models.Notification", b =>
+                {
+                    b.HasOne("Flexiro.Application.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Flexiro.Application.Models.Order", b =>
