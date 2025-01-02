@@ -112,7 +112,7 @@ app.Use(async (context, next) =>
 app.UseMiddleware<ValidationMappingMiddleware>();
 app.UseMiddleware<JwtMiddleware>();
 app.UseHttpsRedirection();
-app.UseAuthentication();
+app.UseRouting();
 app.UseStaticFiles();
 app.UseEndpoints(endpoints =>
 {
