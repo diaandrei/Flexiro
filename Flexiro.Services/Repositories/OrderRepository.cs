@@ -40,7 +40,29 @@ namespace Flexiro.Services.Repositories
 
                 ShippingAddress? shippingAddress;
 
-                if (shippingAddressDto.AddToAddressBook)
+                var existingAddress = await _unitOfWork.Repository.GetQueryable<ShippingAddress>()
+                .FirstOrDefaultAsync(addr =>
+                   addr.UserId == userId &&
+                   addr.Address == shippingAddressDto.Address &&
+                   addr.Postcode == shippingAddressDto.Postcode &&
+                   addr.City == shippingAddressDto.City &&
+                   addr.Country == shippingAddressDto.Country &&
+                   addr.PhoneNumber == shippingAddressDto.PhoneNumber
+               );
+
+                if (existingAddress != null)
+                {
+                    shippingAddress = existingAddress;
+                    if (shippingAddress.AddToAddressBook != shippingAddressDto.AddToAddressBook)
+                    {
+                        shippingAddress.AddToAddressBook = shippingAddressDto.AddToAddressBook;
+
+                        _unitOfWork.Repository.Update(shippingAddress);
+
+                        await _unitOfWork.Repository.CompleteAsync();
+                    }
+                }
+                else if (shippingAddressDto.AddToAddressBook)
                 {
                     shippingAddress = _mapper.Map<ShippingAddress>(shippingAddressDto);
                     shippingAddress.UserId = userId;
@@ -49,27 +71,17 @@ namespace Flexiro.Services.Repositories
                 }
                 else
                 {
-                    shippingAddress = await _unitOfWork.Repository.GetQueryable<ShippingAddress>()
-                        .FirstOrDefaultAsync(addr => addr.UserId == userId &&
-                                                      addr.Address == shippingAddressDto.Address &&
-                                                      addr.Postcode == shippingAddressDto.Postcode);
-
-                    if (shippingAddress == null)
-                    {
-                        shippingAddress = _mapper.Map<ShippingAddress>(shippingAddressDto);
-                        shippingAddress.UserId = userId;
-                        await _unitOfWork.Repository.AddAsync(shippingAddress);
-                        await _unitOfWork.Repository.CompleteAsync();
-                    }
+                    shippingAddress = _mapper.Map<ShippingAddress>(shippingAddressDto);
+                    shippingAddress.UserId = userId;
+                    await _unitOfWork.Repository.AddAsync(shippingAddress);
+                    await _unitOfWork.Repository.CompleteAsync();
                 }
 
-                // Calculate totals
+                decimal? shippingCost = cart.ShippingCost;
                 decimal itemsTotal = cart.CartItems.Sum(item => item.Product.PricePerItem * item.Quantity - (item.DiscountAmount ?? 0));
-                decimal shippingCost = CalculateShippingCost(cart);
                 decimal tax = CalculateTax(itemsTotal);
-                decimal totalAmount = itemsTotal;
+                decimal totalAmount = itemsTotal + shippingCost!.Value;
 
-                // Create and save Order
                 var order = new Order
                 {
                     UserId = userId,
@@ -83,15 +95,19 @@ namespace Flexiro.Services.Repositories
                     Status = OrderStatus.New,
                     PaymentStatus = "Unpaid",
                     PaymentMethod = paymentMethod,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 };
 
                 await _unitOfWork.Repository.AddAsync(order);
                 await _unitOfWork.Repository.CompleteAsync();
 
-                // Create and save OrderDetails for each cart item
                 foreach (var item in cart.CartItems)
                 {
+                    item.Product.StockQuantity -= item.Quantity;
+                    if (item.Product.StockQuantity <= 0)
+                    {
+                        item.Product.Status = ProductStatus.SoldOut;
+                    }
                     var orderDetail = new OrderDetails
                     {
                         OrderId = order.OrderId,
@@ -102,10 +118,38 @@ namespace Flexiro.Services.Repositories
                         DiscountAmount = item.DiscountAmount,
                         TotalPrice = (item.Product.PricePerItem * item.Quantity) - (item.DiscountAmount ?? 0),
                         Status = OrderStatus.New,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTime.UtcNow
                     };
 
                     await _unitOfWork.Repository.AddAsync(orderDetail);
+                }
+
+                await _unitOfWork.Repository.CompleteAsync();
+
+                var shopIds = cart.CartItems
+                    .Select(item => item.Product.ShopId)
+                    .Distinct();
+
+                foreach (var shopId in shopIds)
+                {
+                    var shopOwnerUserId = await _unitOfWork.Repository.GetQueryable<Shop>()
+                        .Where(shop => shop.ShopId == shopId)
+                        .Select(shop => shop.OwnerId)
+                        .FirstOrDefaultAsync();
+
+                    if (!string.IsNullOrEmpty(shopOwnerUserId))
+                    {
+                        var notification = new Notification
+                        {
+                            UserId = shopOwnerUserId,
+                            Message = $"New order #{order.OrderNumber} has been received.",
+                            CreatedAt = DateTime.UtcNow,
+                            IsRead = false,
+                            NotificationType = "Order Received"
+                        };
+
+                        await _unitOfWork.Repository.AddAsync(notification);
+                    }
                 }
 
                 await _unitOfWork.Repository.CompleteAsync();
@@ -127,9 +171,12 @@ namespace Flexiro.Services.Repositories
                         Quantity = item.Quantity,
                         PricePerUnit = item.PricePerUnit,
                         TotalPrice = (item.PricePerUnit * item.Quantity) - (item.DiscountAmount ?? 0)
+
                     }).ToList()
                 };
+
                 await transaction.CommitAsync();
+
                 return order;
             }
             catch (Exception)
@@ -146,12 +193,12 @@ namespace Flexiro.Services.Repositories
 
         public decimal CalculateShippingCost(Cart cart)
         {
-            return 10.0m;
+            return 0.0m;
         }
 
         public decimal CalculateTax(decimal itemsTotal)
         {
-            return itemsTotal * 0.05m;
+            return 0.0m;
         }
 
         public async Task<int> GetTotalOrdersByShopAsync(int shopId)
@@ -220,10 +267,12 @@ namespace Flexiro.Services.Repositories
                             CreatedAt = od.CreatedAt
                         }).ToList()
                 })
+
                 .ToListAsync();
 
             return orders;
         }
+
 
         public async Task<(List<Order>, int)> GetDeliveredOrdersByShopAsync(int shopId)
         {
@@ -231,7 +280,6 @@ namespace Flexiro.Services.Repositories
                 .Where(o => o.OrderDetails.Any(od => od.ShopId == shopId && od.Status == OrderStatus.Delivered))
                 .ToListAsync();
 
-            // Count of delivered orders
             int deliveredOrderCount = deliveredOrders.Count;
 
             return (deliveredOrders, deliveredOrderCount);
@@ -239,7 +287,6 @@ namespace Flexiro.Services.Repositories
 
         public async Task<(List<string>, int)> GetAllCustomersByShopAsync(int shopId)
         {
-            // Get the list of unique customers for the specified shopId
             var customerList = await _unitOfWork.Repository.GetQueryable<Order>()
                 .Where(o => o.OrderDetails.Any(od => od.ShopId == shopId))
                 .Select(o => o.User.Email)
@@ -250,14 +297,16 @@ namespace Flexiro.Services.Repositories
 
             return (customerList, customerCount)!;
         }
+
         public async Task<decimal> GetTotalEarningsByShopAsync(int shopId)
         {
             var totalEarnings = await _unitOfWork.Repository.GetQueryable<OrderDetails>()
-                .Where(od => od.ShopId == shopId && od.Order.Status == OrderStatus.Delivered)
+                .Where(od => od.ShopId == shopId)
                 .SumAsync(od => od.TotalPrice);
 
             return totalEarnings;
         }
+
         public async Task<int> GetNewOrderCountByShopAsync(int shopId)
         {
             var newOrderCount = await _unitOfWork.Repository.GetQueryable<OrderDetails>()
@@ -285,7 +334,7 @@ namespace Flexiro.Services.Repositories
         {
             return await _context.Orders
                 .Include(o => o.OrderDetails)
-                .ThenInclude(od => od.Product)
+                    .ThenInclude(od => od.Product)
                 .Include(o => o.ShippingAddress)
                 .Where(o => o.UserId == userId)
                 .OrderByDescending(o => o.CreatedAt)
