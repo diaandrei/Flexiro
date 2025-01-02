@@ -6,6 +6,7 @@ using Flexiro.Contracts.Requests;
 using Flexiro.Contracts.Responses;
 using Flexiro.Services.Repositories;
 using Flexiro.Services.Services.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace Flexiro.Services.Services
 {
@@ -16,16 +17,18 @@ namespace Flexiro.Services.Services
         private readonly IOrderRepository _orderRepository;
         private readonly ICartRepository _cartRepository;
         private readonly IShippingRepository _shippingAddressRepository;
+        private readonly INotificationService _notificationService;
 
         public OrderService(IUnitOfWork unitOfWork, IMapper mapper, IOrderRepository orderRepository,
             ICartRepository cartRepository,
-            IShippingRepository shippingAddressRepository)
+            IShippingRepository shippingAddressRepository, INotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _orderRepository = orderRepository;
             _cartRepository = cartRepository;
             _shippingAddressRepository = shippingAddressRepository;
+            _notificationService = notificationService;
         }
 
         public async Task<ResponseModel<OrderResponseDto>> PlaceOrderAsync(string userId, AddUpdateShippingAddressRequest shippingAddressDto, string paymentMethod)
@@ -133,12 +136,32 @@ namespace Flexiro.Services.Services
         public async Task<bool> UpdateOrderStatusAsync(UpdateOrderStatusDto request)
         {
             var order = await _orderRepository.GetOrderByIdAsync(request.OrderId);
+            var oldStatus = order.Status;
 
             if (order == null!)
                 return false;
 
             order.Status = (OrderStatus)request.NewStatus;
-            await _orderRepository.UpdateOrderAsync(order);
+
+            var sellerIds = await _unitOfWork.Repository.GetQueryable<OrderDetails>()
+                .Where(od => od.OrderId == order.OrderId)
+                .Select(od => od.ShopId)
+                .Distinct()
+                .ToListAsync();
+
+            string message;
+
+            if (sellerIds.Count > 1)
+            {
+                message = $"Part of your Order #{order.OrderNumber} has been changed from {oldStatus} to {order.Status}.";
+            }
+            else
+            {
+                message = $"Order #{order.OrderNumber} status has been changed from {oldStatus} to {order.Status}.";
+            }
+
+            await _notificationService.AddNotificationAsync(order.UserId, message, "OrderStatusUpdate");
+
             return true;
         }
 

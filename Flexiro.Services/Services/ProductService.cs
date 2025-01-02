@@ -80,6 +80,7 @@ namespace Flexiro.Services.Services
         public async Task<ResponseModel<List<string>>> GetAllCategoryNamesAsync()
         {
             var response = new ResponseModel<List<string>>();
+
             try
             {
                 var categoryNames = await _productRepository.GetAllCategoryNamesAsync();
