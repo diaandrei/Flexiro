@@ -17,6 +17,7 @@ using System.Text.Json;
 using Braintree;
 using Flexiro.Contracts.Requests;
 using Stripe;
+using Flexiro.Services.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
@@ -90,13 +91,15 @@ builder.Services.AddCors(options =>
         builder => builder
             .WithOrigins("http://localhost:3000", "https://flexiroapi-d7akfuaug8d7esdg.uksouth-01.azurewebsites.net")
             .AllowAnyMethod()
-            .AllowAnyHeader());
+            .AllowAnyHeader()
+            .AllowCredentials());
 });
 
 var app = builder.Build();
 
 app.UseSwagger();
 app.UseSwaggerUI();
+app.UseCors("AllowLocalhostAndProduction");
 app.Use(async (context, next) =>
 {
     if (context.Request.Path == "/")
@@ -111,9 +114,11 @@ app.UseMiddleware<JwtMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseStaticFiles();
-app.UseAuthorization();
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapHub<NotificationHub>("/notificationHub");
+});
 
-app.UseCors("AllowLocalhostAndProduction");
 
 app.MapControllers();
 
