@@ -6,14 +6,11 @@ namespace Flexiro.Services.Repositories
 {
     public interface ICartRepository
     {
-
         Task<Cart> GetCartByUserIdAsync(string userId);
-        Task<Cart> CreateNewCartAsync(string userId);
+        Task<Cart> CreateNewCartAsync(string userId, bool IsGuest);
         Task<CartItem> AddOrUpdateCartItemAsync(Cart cart, CartItemRequestModel itemRequest, Product product);
         Task UpdateCartTotalsAsync(Cart cart);
-
         Task<MainCartModel> GetCartAsync(string userId);
-
         Task<CartItem?> UpdateCartItemQuantityAsync(int cartItemId, int quantity);
         Task<CartItem?> RemoveItemFromCartAsync(int cartItemId);
         Task<CartSummaryResponseModel> GetCartSummaryAsync(string userId);
@@ -22,5 +19,6 @@ namespace Flexiro.Services.Repositories
         Task<bool> IsCartExistAsync(int? userId);
         Task<decimal> GetTotalCartPriceAsync(int? userId);
         Task<int?> GetCartItemCountAsync(string userId);
+        Task UpdateCartAsync(Cart cart);
     }
 }

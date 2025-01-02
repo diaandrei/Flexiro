@@ -22,19 +22,21 @@ namespace Flexiro.Services.Repositories
         }
         public async Task<Cart> GetCartByUserIdAsync(string userId)
         {
-            return (await _unitOfWork.Repository.GetQueryable<Cart>(c => c.UserId == userId)
+            return (await _unitOfWork.Repository.GetQueryable<Cart>(c => c.UserId == userId || c.GuestUserId == userId)
                 .Include(c => c.CartItems)
                 .FirstOrDefaultAsync())!;
         }
 
-        public async Task<Cart> CreateNewCartAsync(string userId)
+        public async Task<Cart> CreateNewCartAsync(string userId, bool IsGuest)
         {
+
             var cart = new Cart
             {
-                UserId = userId,
+                UserId = IsGuest ? null! : userId,
+                GuestUserId = IsGuest ? userId : null,
                 CartItems = new List<CartItem>(),
-                CreatedAt = DateTime.Now,
-                UpdatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
             await _unitOfWork.Repository.AddAsync(cart);
             return cart;
@@ -42,11 +44,14 @@ namespace Flexiro.Services.Repositories
 
         public async Task<CartItem> AddOrUpdateCartItemAsync(Cart cart, CartItemRequestModel itemRequest, Product product)
         {
-            var originalPrice = product.PricePerItem;
+
+            var finalPrice = product.DiscountPercentage.HasValue && product.DiscountPercentage.Value != 0
+                ? product.PricePerItem - (product.PricePerItem * (product.DiscountPercentage.Value / 100))
+                : product.PricePerItem;
+            var originalPrice = finalPrice;
             decimal discountAmount = 0;
             decimal priceAfterDiscount = originalPrice;
 
-            // Check if a discount is available
             if (product.DiscountPercentage.HasValue && product.DiscountPercentage > 0)
             {
                 discountAmount = originalPrice * product.DiscountPercentage.Value / 100;
@@ -60,10 +65,8 @@ namespace Flexiro.Services.Repositories
                 existingCartItem.PricePerUnit = originalPrice;
                 existingCartItem.DiscountAmount = discountAmount * itemRequest.Quantity;
                 existingCartItem.TotalPrice = priceAfterDiscount * itemRequest.Quantity;
-                existingCartItem.UpdatedAt = DateTime.Now;
-
+                existingCartItem.UpdatedAt = DateTime.UtcNow;
                 _unitOfWork.Repository.Update(existingCartItem);
-
                 return existingCartItem;
             }
             else
@@ -91,15 +94,14 @@ namespace Flexiro.Services.Repositories
             cart.ShippingCost = 5;
             cart.TotalDiscount = cart.CartItems.Sum(ci => ci.DiscountAmount ?? 0);
             cart.TotalAmount = cart.CartItems.Sum(ci => ci.TotalPrice) + (cart.Tax ?? 0) + (cart.ShippingCost ?? 0);
-            cart.UpdatedAt = DateTime.Now;
+            cart.UpdatedAt = DateTime.UtcNow;
             await _unitOfWork.Repository.CompleteAsync();
         }
 
         public async Task<bool> IsCartExistAsync(int? userId)
         {
-            // Check if a cart exists for the specified user and has items
             var cart = await _unitOfWork.Repository.GetQueryable<Cart>(c => c.UserId == userId.ToString())
-                            .Include(c => c.CartItems) // Ensure CartItems are included for checking
+                            .Include(c => c.CartItems)
                             .FirstOrDefaultAsync();
 
             return cart != null && cart.CartItems.Any();
@@ -109,8 +111,7 @@ namespace Flexiro.Services.Repositories
         {
             try
             {
-                // Retrieve the cart by CartId
-                var cart = await _unitOfWork.Repository.GetQueryable<Cart>(c => c.UserId == userId)
+                var cart = await _unitOfWork.Repository.GetQueryable<Cart>(c => c.UserId == userId || c.GuestUserId == userId)
                                 .Include(c => c.CartItems)
                                     .ThenInclude(ci => ci.Product)
                                     .ThenInclude(p => p.ProductImages)
@@ -118,7 +119,6 @@ namespace Flexiro.Services.Repositories
 
                 if (cart == null) return null!;
 
-                // Map cart data to MainCartModel
                 return new MainCartModel
                 {
                     CartId = cart.CartId,
@@ -153,18 +153,15 @@ namespace Flexiro.Services.Repositories
         {
             try
             {
-                // Retrieve cart items by product IDs
                 var cartItems = await _unitOfWork.Repository.GetQueryable<CartItem>(ci => productIds.Contains(ci.ProductId))
                                         .Include(ci => ci.Product)
                                         .ToListAsync();
 
-                // Sum and return the total prices of the retrieved cart items
                 return cartItems.Sum(ci => ci.PricePerUnit);
             }
             catch (Exception ex)
             {
-                // Log error
-                _logger.LogError(ex, "Error occurred while calculating the total for products: {ProductIds}", string.Join(", ", productIds));
+                _logger.LogError(ex, "Error occurred while calculating product total for products: {ProductIds}", string.Join(", ", productIds));
                 throw;
             }
         }
@@ -175,41 +172,39 @@ namespace Flexiro.Services.Repositories
             {
                 throw new ArgumentNullException(nameof(userId), "User ID cannot be null.");
             }
-            // Fetch the cart for the specified user
+
             var cart = await _unitOfWork.Repository.GetQueryable<Cart>(c => c.UserId == userId.ToString())
                                .FirstOrDefaultAsync();
 
             return cart?.TotalAmount ?? 0;
+
         }
 
         public async Task<CartItem?> UpdateCartItemQuantityAsync(int cartItemId, int quantity)
         {
-            // Fetch the cart item
             var cartItem = await _unitOfWork.Repository.GetQueryable<CartItem>(ci => ci.CartItemId == cartItemId)
                                        .Include(ci => ci.Cart)
-                                       .ThenInclude(c => c.CartItems) // Include all cart items to recalculate totals
+                                       .ThenInclude(c => c.CartItems)
                                        .FirstOrDefaultAsync();
+
             if (cartItem == null)
             {
                 return null;
             }
 
-            // Fetch the product to check stock availability
             var product = await _unitOfWork.Repository.GetQueryable<Product>(p => p.ProductId == cartItem.ProductId)
                                      .FirstOrDefaultAsync();
 
             if (product == null)
             {
-                return null; // Return null if the product doesn't exist
+                return null;
             }
 
-            // Check if the requested quantity exceeds available stock
             if (product.StockQuantity < quantity)
             {
-                return null; // Return null if there's insufficient stock
+                return null;
             }
 
-            // Update the cart item’s quantity and recalculate its total price and discount
             var originalPrice = product.PricePerItem;
             var discountPercentage = product.DiscountPercentage ?? 0;
             var discountAmount = originalPrice * (discountPercentage / 100);
@@ -219,109 +214,96 @@ namespace Flexiro.Services.Repositories
             cartItem.PricePerUnit = originalPrice;
             cartItem.DiscountAmount = discountAmount * quantity;
             cartItem.TotalPrice = priceAfterDiscount * quantity;
-            cartItem.UpdatedAt = DateTime.Now;
+            cartItem.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.Repository.Update(cartItem);
 
-            // Recalculate the cart totals
             var cart = cartItem.Cart;
             cart.ItemsTotal = cart.CartItems.Sum(ci => ci.PricePerUnit * ci.Quantity);
             cart.TotalDiscount = cart.CartItems.Sum(ci => ci.DiscountAmount ?? 0);
             cart.TotalAmount = cart.CartItems.Sum(ci => ci.TotalPrice) + (cart.Tax ?? 0) + (cart.ShippingCost ?? 0);
-            cart.UpdatedAt = DateTime.Now;
+            cart.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.Repository.Update(cart);
 
             await _unitOfWork.Repository.CompleteAsync();
 
-            return cartItem; // Return the updated cart item
+            return cartItem;
         }
 
         public async Task<CartItem?> RemoveItemFromCartAsync(int cartItemId)
         {
-            // Fetch the cart item
             var cartItem = await _unitOfWork.Repository.GetQueryable<CartItem>(ci => ci.CartItemId == cartItemId)
                                         .Include(ci => ci.Cart)
                                         .ThenInclude(c => c.CartItems)
                                         .FirstOrDefaultAsync();
+
             if (cartItem == null)
             {
                 return null;
             }
 
-            // Get the cart associated with the cart item
             var cart = cartItem.Cart;
 
-            // Remove the cart item from the database and the cart's collection
             _unitOfWork.Repository.HardDelete(cartItem);
             cart.CartItems.Remove(cartItem);
 
-            // Check if the cart is now empty
             if (!cart.CartItems.Any())
             {
-                // Delete the cart if it's empty
                 _unitOfWork.Repository.HardDelete(cart);
             }
             else
             {
-                // Recalculate the cart totals
                 cart.ItemsTotal = cart.CartItems.Sum(ci => ci.PricePerUnit * ci.Quantity);
                 cart.TotalDiscount = cart.CartItems.Sum(ci => ci.DiscountAmount ?? 0);
-                cart.TotalAmount = (decimal)(cart.ItemsTotal - cart.TotalDiscount + (cart.Tax ?? 0) + (cart.ShippingCost ?? 0))!;
-                cart.UpdatedAt = DateTime.Now;
+                cart.TotalAmount = (decimal)(cart.ItemsTotal - cart.TotalDiscount + (cart.Tax ?? 0) + (cart.ShippingCost ?? 0));
+                cart.UpdatedAt = DateTime.UtcNow;
 
-                // Update the cart with recalculated totals
                 _unitOfWork.Repository.Update(cart);
             }
 
             await _unitOfWork.Repository.CompleteAsync();
-
-            if (cart != null!)
+            if (cart != null)
             {
                 cartItem.Cart = cart;
 
             }
-            return cartItem;  // Return the removed cart item
+            return cartItem;
         }
 
         public async Task<bool> ClearCartAsync(string userId)
         {
             try
             {
-                // Fetch the cart for the user
                 var cart = await _unitOfWork.Repository.GetQueryable<Cart>()
                                  .Include(c => c.CartItems)
                                  .FirstOrDefaultAsync(c => c.UserId == userId);
 
                 if (cart == null)
                 {
-                    return false;  // Cart not found
+                    return false;
                 }
 
-                // Remove all items from the cart
                 foreach (var item in cart.CartItems.ToList())
                 {
                     _unitOfWork.Repository.HardDelete(item);
                 }
 
-                // Recalculate cart totals and clear the cart
                 cart.ItemsTotal = 0;
                 cart.TotalAmount = 0;
                 cart.CartItems.Clear();
-                cart.UpdatedAt = DateTime.Now;
+                cart.UpdatedAt = DateTime.UtcNow;
 
-                // Hard delete the cart itself
                 _unitOfWork.Repository.HardDelete(cart);
 
-                // Persist changes
                 await _unitOfWork.Repository.CompleteAsync();
 
-                return true; // Cart cleared successfully
+                return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while clearing cart for UserID: {UserId}", userId);
-                return false;  // Return false in case of error
+                return false;
             }
         }
 
@@ -329,7 +311,6 @@ namespace Flexiro.Services.Repositories
         {
             try
             {
-                // Retrieve the user's cart with the items and product details
                 var cart = await _unitOfWork.Repository.GetQueryable<Cart>(c => c.UserId == userId)
                                   .Include(c => c.CartItems)
                                   .ThenInclude(ci => ci.Product)
@@ -337,10 +318,9 @@ namespace Flexiro.Services.Repositories
 
                 if (cart == null)
                 {
-                    return null!;  // Return null if no cart found
+                    return null!;
                 }
 
-                // Create the CartSummaryResponseModel from the cart data
                 var cartSummary = new CartSummaryResponseModel
                 {
                     Items = cart.CartItems.Select(ci => new CartItemSummary
@@ -358,35 +338,41 @@ namespace Flexiro.Services.Repositories
                     Total = cart.TotalAmount
                 };
 
-                return cartSummary;  // Return the mapped cart summary
+                return cartSummary;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving cart summary for user ID: {UserId}", userId);
-                return null!;  // Return null if an error occurred
+                return null!;
             }
         }
+
         public async Task<int?> GetCartItemCountAsync(string userId)
         {
             try
             {
-                // Retrieve the cart including its items
-                var cart = await _unitOfWork.Repository.GetQueryable<Cart>(c => c.UserId == userId)
+                var cart = await _unitOfWork.Repository.GetQueryable<Cart>(c => c.UserId == userId || c.GuestUserId == userId)
                     .Include(c => c.CartItems)
                     .FirstOrDefaultAsync();
 
                 if (cart == null || !cart.CartItems.Any())
                 {
-                    return null; // Return null if no cart or items exist
+                    return null;
                 }
 
-                // Sum up the quantity of all items in the cart
                 return cart.CartItems.Sum(ci => ci.Quantity);
             }
             catch (Exception ex)
             {
-                throw ex; // Let the service handle logging or exceptions
+                throw new InvalidOperationException($"An error occurred while retrieving the cart item count for user ID: {userId}", ex);
             }
         }
+
+        public async Task UpdateCartAsync(Cart cart)
+        {
+            _unitOfWork.Repository.Update(cart);
+            await _unitOfWork.Repository.CompleteAsync();
+        }
+
     }
 }
