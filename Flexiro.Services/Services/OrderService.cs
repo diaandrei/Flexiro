@@ -143,6 +143,8 @@ namespace Flexiro.Services.Services
 
             order.Status = (OrderStatus)request.NewStatus;
 
+            await _orderRepository.UpdateOrderAsync(order);
+
             var sellerIds = await _unitOfWork.Repository.GetQueryable<OrderDetails>()
                 .Where(od => od.OrderId == order.OrderId)
                 .Select(od => od.ShopId)

@@ -65,6 +65,7 @@ namespace Flexiro.API.Controllers
         public async Task<IActionResult> GetAllCategories()
         {
             var result = await _productService.GetAllCategoryNamesAsync();
+
             if (!result.Success)
             {
                 return BadRequest(result);
