@@ -16,5 +16,6 @@ namespace Flexiro.Services.Services.Interfaces
         Task<bool> IsCartExistAsync(int? userId);
         Task<decimal> GetTotalCartPriceAsync(int? userId);
         Task<int?> GetCartItemCountAsync(string userId);
+        Task<ResponseModel<object>> TransferGuestCartAsync(string guestId, string userId);
     }
 }

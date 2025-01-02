@@ -37,7 +37,7 @@ namespace Flexiro.Services.Services
 
                 if (cart == null!)
                 {
-                    cart = await _cartRepository.CreateNewCartAsync(userId);
+                    cart = await _cartRepository.CreateNewCartAsync(userId, requestModel.IsGuest);
                 }
 
                 foreach (var itemRequest in requestModel.Items)
@@ -370,6 +370,59 @@ namespace Flexiro.Services.Services
 
                 return null;
             }
+        }
+
+        public async Task<ResponseModel<object>> TransferGuestCartAsync(string guestId, string userId)
+        {
+            var response = new ResponseModel<object>();
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(guestId) || string.IsNullOrWhiteSpace(userId))
+                {
+                    response.Success = false;
+                    response.Title = "Invalid Data";
+                    response.Description = "Guest ID and User ID are required.";
+                    return response;
+                }
+
+                var guestCart = await _cartRepository.GetCartByUserIdAsync(guestId);
+
+                if (guestCart == null!)
+                {
+                    response.Success = false;
+                    response.Title = "Guest Cart Not Found";
+                    response.Description = "No cart found for the specified guest ID.";
+                    return response;
+                }
+
+                var userCart = await _cartRepository.GetCartByUserIdAsync(userId);
+
+                if (userCart != null!)
+                {
+                    response.Success = false;
+                    response.Title = "User Cart Exists";
+                    response.Description = "The user already has a cart associated with their account.";
+                    return response;
+                }
+
+                guestCart.UserId = userId;
+                guestCart.GuestUserId = null;
+                await _cartRepository.UpdateCartAsync(guestCart);
+
+                response.Success = true;
+                response.Title = "Cart Transferred";
+                response.Description = "The guest cart has been successfully transferred to the user.";
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Title = "Error Transferring Cart";
+                response.Description = "An error occurred while transferring the cart.";
+                response.ExceptionMessage = ex.Message;
+            }
+
+            return response;
         }
     }
 }
