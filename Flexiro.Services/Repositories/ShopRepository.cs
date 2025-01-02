@@ -232,6 +232,7 @@ namespace Flexiro.Services.Repositories
 
             if (!string.IsNullOrWhiteSpace(newStatus.OpeningTime))
                 shop.OpeningTime = newStatus.OpeningTime;
+
             await _unitOfWork.Repository.UpdateAsync(shop);
             await _unitOfWork.Repository.CompleteAsync();
 

@@ -21,9 +21,12 @@ namespace Flexiro.Services
             services.AddScoped<IReviewRepository, ReviewRepository>();
             services.AddScoped<IShippingRepository, ShippingRepository>();
             services.AddScoped<IShopRepository, ShopRepository>();
+            services.AddScoped<INotificationRepository, NotificationRepository>();
             services.AddScoped<IPaymentService, PaymentService>();
             services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<IBlobStorageService, BlobStorageService>();
+            services.AddScoped<INotificationService, NotificationService>();
+            services.AddSingleton<UserConnectionManager>();
 
             return services;
         }
