@@ -21,6 +21,7 @@ namespace Flexiro.Application.Database
         public DbSet<ShippingAddress> ShippingAddresses { get; set; }
         public DbSet<Shop> Shops { get; set; }
         public DbSet<UserWishlist> UserWishlist { get; set; }
+        public DbSet<Notification> Notification { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

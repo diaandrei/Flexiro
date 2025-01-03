@@ -339,5 +339,54 @@ namespace Flexiro.Services.Services
 
             return response;
         }
+
+        public async Task<ResponseModel<UserRatingResponseDto>> GetUserRatingAsync(int productId, string userId)
+        {
+            var response = new ResponseModel<UserRatingResponseDto>();
+
+            try
+            {
+                // Check if the product exists
+                if (!await _reviewRepository.ProductExistsAsync(productId))
+                {
+                    response.Success = false;
+                    response.Title = "Product Not Found";
+                    response.Description = $"Product with ID '{productId}' does not exist.";
+                    return response;
+                }
+
+                // Fetch the review
+                var review = await _reviewRepository.GetExistingReviewAsync(productId, userId);
+
+                if (review == null!)
+                {
+                    response.Success = false;
+                    response.Title = "Review Not Found";
+                    response.Description = "No review found for the specified user and product.";
+                }
+                else
+                {
+                    response.Success = true;
+                    response.Title = "Review Found";
+                    response.Description = "The review for the specified user and product has been retrieved.";
+                    response.Content = new UserRatingResponseDto
+                    {
+                        ProductId = review.ProductId,
+                        UserId = review.UserId,
+                        Rating = review.Rating
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Title = "Error Fetching Review";
+                response.Description = "An error occurred while fetching the review.";
+                response.ExceptionMessage = ex.Message;
+            }
+
+            return response;
+        }
+
     }
 }

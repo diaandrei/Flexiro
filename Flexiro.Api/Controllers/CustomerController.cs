@@ -195,6 +195,26 @@ namespace Flexiro.API.Controllers
             });
         }
 
+        [HttpPost("transfer-guest-cart")]
+        public async Task<IActionResult> TransferGuestCart([FromBody] TransferGuestCartModel request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest("Invalid data.");
+            }
+
+            var result = await _cartService.TransferGuestCartAsync(request.GuestId, request.UserId);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+            else
+            {
+                return BadRequest(result);
+            }
+        }
+
         [HttpGet("cart")]
         public async Task<IActionResult> GetCart(string userId)
         {
@@ -374,6 +394,27 @@ namespace Flexiro.API.Controllers
             }
 
             return Ok(response);
+        }
+
+        [HttpGet("product/review/user-rating")]
+        public async Task<IActionResult> GetUserRating([FromQuery] int productId, [FromQuery] string userId)
+        {
+            if (productId <= 0 || string.IsNullOrWhiteSpace(userId))
+            {
+                return BadRequest("Invalid product ID or user ID.");
+            }
+
+            var result = await _reviewService.GetUserRatingAsync(productId, userId);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+
+            else
+            {
+                return NotFound(result);
+            }
         }
     }
 }

@@ -13,5 +13,6 @@ namespace Flexiro.Services.Services.Interfaces
         Task<ResponseModel<IList<Review>>> GetReviewsByUserIdAsync(string userId);
         Task<ResponseModel<string>> GetAverageRatingAsync(int productId);
         Task<ResponseModel<string>> GetAverageRatingByShopIdAsync(int shopId);
+        Task<ResponseModel<UserRatingResponseDto>> GetUserRatingAsync(int productId, string userId);
     }
 }

@@ -4,7 +4,7 @@
     {
         public int ProductId { get; set; }
         public string UserId { get; set; }
-        public decimal Rating { get; set; }
+        public decimal? Rating { get; set; }
     }
 
 }
