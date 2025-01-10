@@ -89,7 +89,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowLocalhostAndProduction",
         builder => builder
-            .WithOrigins("http://localhost:3000", "https://flexiroapi-d7akfuaug8d7esdg.uksouth-01.azurewebsites.net")
+            .WithOrigins("http://localhost:3000", "https://flexiroapi-d7akfuaug8d7esdg.uksouth-01.azurewebsites.net", "https://flexiroweb-h3g0fvfkdbhcdvgk.uksouth-01.azurewebsites.net")
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials());
