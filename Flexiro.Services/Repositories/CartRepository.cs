@@ -20,6 +20,7 @@ namespace Flexiro.Services.Repositories
             _mapper = mapper;
             _logger = logger;
         }
+
         public async Task<Cart> GetCartByUserIdAsync(string userId)
         {
             return (await _unitOfWork.Repository.GetQueryable<Cart>(c => c.UserId == userId || c.GuestUserId == userId)
@@ -29,7 +30,6 @@ namespace Flexiro.Services.Repositories
 
         public async Task<Cart> CreateNewCartAsync(string userId, bool IsGuest)
         {
-
             var cart = new Cart
             {
                 UserId = IsGuest ? null! : userId,
@@ -44,10 +44,10 @@ namespace Flexiro.Services.Repositories
 
         public async Task<CartItem> AddOrUpdateCartItemAsync(Cart cart, CartItemRequestModel itemRequest, Product product)
         {
-
             var finalPrice = product.DiscountPercentage.HasValue && product.DiscountPercentage.Value != 0
                 ? product.PricePerItem - (product.PricePerItem * (product.DiscountPercentage.Value / 100))
                 : product.PricePerItem;
+
             var originalPrice = finalPrice;
             decimal discountAmount = 0;
             decimal priceAfterDiscount = originalPrice;
@@ -59,6 +59,7 @@ namespace Flexiro.Services.Repositories
             }
 
             var existingCartItem = cart.CartItems.FirstOrDefault(ci => ci.ProductId == itemRequest.ProductId && ci.ShopId == itemRequest.ShopId);
+
             if (existingCartItem != null)
             {
                 existingCartItem.Quantity = itemRequest.Quantity;
@@ -263,7 +264,8 @@ namespace Flexiro.Services.Repositories
             }
 
             await _unitOfWork.Repository.CompleteAsync();
-            if (cart != null)
+
+            if (cart != null!)
             {
                 cartItem.Cart = cart;
 

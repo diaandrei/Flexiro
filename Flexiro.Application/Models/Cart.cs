@@ -9,7 +9,7 @@ namespace Flexiro.Application.Models
         public int CartId { get; set; }
 
         [Required]
-        public string UserId { get; set; }
+        public string? UserId { get; set; }
         public virtual ApplicationUser User { get; set; }
         public string? GuestUserId { get; set; }
 
