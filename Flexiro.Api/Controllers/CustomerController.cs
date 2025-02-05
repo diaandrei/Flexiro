@@ -133,18 +133,23 @@ namespace Flexiro.API.Controllers
         }
 
         [HttpPost("add-product-to-cart")]
-        public async Task<IActionResult> AddItemToCartAsync([FromBody] MultiCartItemRequestModel requestModel, string userId)
+        public async Task<IActionResult> AddItemToCartAsync(
+            [FromBody] MultiCartItemRequestModel requestModel,
+            [FromQuery] string userId)
         {
+            if (requestModel.IsGuest && string.IsNullOrWhiteSpace(userId))
+            {
+                userId = Guid.NewGuid().ToString();
+            }
+
             var response = await _cartService.AddItemToCartAsync(requestModel, userId);
 
             if (!response.Success)
             {
                 return BadRequest(new { response.Title, response.Description, response.ExceptionMessage });
             }
-
-            return Ok(new { response.Title, response.Description, Items = response.Content });
+            return Ok(new { response.Title, response.Description, Items = response.Content, GuestUserId = userId });
         }
-
 
         [HttpPut("UpdateCartItemQuantity")]
         public async Task<IActionResult> UpdateCartItemQuantity(UpdateCartDto cartData)

@@ -33,6 +33,7 @@ namespace Flexiro.Services.Repositories
             var cart = new Cart
             {
                 UserId = IsGuest ? null! : userId,
+                UserId = IsGuest ? null : userId, // Set UserId to null if it's a guest user
                 GuestUserId = IsGuest ? userId : null,
                 CartItems = new List<CartItem>(),
                 CreatedAt = DateTime.UtcNow,

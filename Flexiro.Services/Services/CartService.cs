@@ -1,4 +1,6 @@
-﻿using AutoMapper;
+﻿
+
+using AutoMapper;
 using EasyRepository.EFCore.Generic;
 using Flexiro.Application.Models;
 using Flexiro.Contracts.Requests;
@@ -32,20 +34,18 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Get the user's cart or create a new one
                 var cart = await _cartRepository.GetCartByUserIdAsync(userId);
 
-                if (cart == null!)
+                if (cart == null)
                 {
                     cart = await _cartRepository.CreateNewCartAsync(userId, requestModel.IsGuest);
                 }
 
                 foreach (var itemRequest in requestModel.Items)
                 {
-                    // Validate product existence and stock
                     var product = await _productRepository.GetProductByIdAsync(itemRequest.ProductId);
 
-                    if (product == null!)
+                    if (product == null)
                     {
                         response = new ResponseModel<List<CartItem>>
                         {
@@ -53,7 +53,6 @@ namespace Flexiro.Services.Services
                             Title = "Product Not Found",
                             Description = $"Product with ID '{itemRequest.ProductId}' does not exist."
                         };
-
                         return response;
                     }
 
@@ -67,7 +66,6 @@ namespace Flexiro.Services.Services
                                 ? $"Only {product.StockQuantity} units available for the requested product."
                                 : "Quantity must be greater than zero."
                         };
-
                         return response;
                     }
 
@@ -93,7 +91,6 @@ namespace Flexiro.Services.Services
                     Description = "An error occurred while adding the item to the cart.",
                     ExceptionMessage = ex.Message
                 };
-
                 _logger.LogError(ex, "Error occurred while adding item to cart for user ID: {UserId}", userId);
             }
 
