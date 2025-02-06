@@ -361,13 +361,9 @@ namespace Flexiro.API.Controllers
 
             var itemCount = await _cartService.GetCartItemCountAsync(userId);
 
-            if (itemCount.HasValue)
-            {
-                return Ok(new { success = true, totalItems = itemCount.Value });
-            }
-
-            return NotFound(new { success = false, message = "Cart not found or empty." });
+            return Ok(new { success = true, totalItems = itemCount ?? 0 });
         }
+
 
         [HttpGet("orders")]
         public async Task<IActionResult> GetCustomerOrders(string userId)
