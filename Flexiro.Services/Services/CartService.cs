@@ -384,8 +384,7 @@ namespace Flexiro.Services.Services
                 }
 
                 var guestCart = await _cartRepository.GetCartByUserIdAsync(guestId);
-
-                if (guestCart == null!)
+                if (guestCart == null)
                 {
                     response.Success = false;
                     response.Title = "Guest Cart Not Found";
@@ -395,17 +394,38 @@ namespace Flexiro.Services.Services
 
                 var userCart = await _cartRepository.GetCartByUserIdAsync(userId);
 
-                if (userCart != null!)
+                if (userCart != null)
                 {
-                    response.Success = false;
-                    response.Title = "User Cart Exists";
-                    response.Description = "The user already has a cart associated with their account.";
-                    return response;
-                }
+                    foreach (var guestItem in guestCart.CartItems)
+                    {
+                        var existingItem = userCart.CartItems
+                            .FirstOrDefault(ci => ci.ProductId == guestItem.ProductId && ci.ShopId == guestItem.ShopId);
 
-                guestCart.UserId = userId;
-                guestCart.GuestUserId = null;
-                await _cartRepository.UpdateCartAsync(guestCart);
+                        if (existingItem != null)
+                        {
+                            existingItem.Quantity += guestItem.Quantity;
+                            existingItem.UpdatedAt = DateTime.UtcNow;
+                            _unitOfWork.Repository.Update(existingItem);
+                        }
+                        else
+                        {
+                            guestItem.Cart = userCart;
+                            guestItem.UpdatedAt = DateTime.UtcNow;
+                            _unitOfWork.Repository.Add(guestItem);
+                        }
+                    }
+
+                    await _cartRepository.UpdateCartTotalsAsync(userCart);
+
+                    var idToClear = guestCart.UserId ?? guestCart.GuestUserId;
+                    await _cartRepository.ClearCartAsync(idToClear);
+                }
+                else
+                {
+                    guestCart.UserId = userId;
+                    guestCart.GuestUserId = null;
+                    await _cartRepository.UpdateCartAsync(guestCart);
+                }
 
                 response.Success = true;
                 response.Title = "Cart Transferred";
@@ -417,6 +437,7 @@ namespace Flexiro.Services.Services
                 response.Title = "Error Transferring Cart";
                 response.Description = "An error occurred while transferring the cart.";
                 response.ExceptionMessage = ex.Message;
+                _logger.LogError(ex, "Error occurred while transferring guest cart ({GuestId}) to user ({UserId})", guestId, userId);
             }
 
             return response;
