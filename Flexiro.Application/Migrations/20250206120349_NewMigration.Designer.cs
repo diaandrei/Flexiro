@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Flexiro.Application.Migrations
 {
     [DbContext(typeof(FlexiroDbContext))]
-    [Migration("20250205192457_InitialMigration")]
-    partial class InitialMigration
+    [Migration("20250206120349_NewMigration")]
+    partial class NewMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -122,9 +122,9 @@ namespace Flexiro.Application.Migrations
                     b.HasData(
                         new
                         {
-                            Id = "f4f44f8d-8870-4384-97be-a162561d23fd",
+                            Id = "35022332-7280-4cb8-af66-b71e95085b32",
                             AccessFailedCount = 0,
-                            ConcurrencyStamp = "1400f11a-c90d-4d3d-b658-05940a196ba8",
+                            ConcurrencyStamp = "b8110a44-5afe-4c45-941b-45e5bc1613f2",
                             CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "admin@flexiro.com",
                             EmailConfirmed = true,
@@ -135,9 +135,9 @@ namespace Flexiro.Application.Migrations
                             LockoutEnabled = false,
                             NormalizedEmail = "ADMIN@FLEXIRO.COM",
                             NormalizedUserName = "ADMIN@FLEXIRO.COM",
-                            PasswordHash = "AQAAAAIAAYagAAAAEDAZ11NmXsdJw6xWIhfXz7zsLEkO49z0KniCPxXZkH+s8JG27xNCNz4tz+nNn5dT6Q==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEDML0m3pZDYw5/Ss/yUZb5dq+vAMUQ48ECT7EPst+03h6d/jeyN2zSU6Gxo0q0nVSg==",
                             PhoneNumberConfirmed = false,
-                            SecurityStamp = "9d282051-94f0-4a94-ad77-df8cf823326d",
+                            SecurityStamp = "e11cf133-a56b-4db7-b440-a1f9415e4c2d",
                             TwoFactorEnabled = false,
                             UserName = "admin@flexiro.com"
                         });
@@ -176,7 +176,6 @@ namespace Flexiro.Application.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("UserId")
-                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("CartId");
@@ -858,7 +857,7 @@ namespace Flexiro.Application.Migrations
                     b.HasData(
                         new
                         {
-                            UserId = "f4f44f8d-8870-4384-97be-a162561d23fd",
+                            UserId = "35022332-7280-4cb8-af66-b71e95085b32",
                             RoleId = "1"
                         });
                 });
@@ -886,9 +885,7 @@ namespace Flexiro.Application.Migrations
                 {
                     b.HasOne("Flexiro.Application.Models.ApplicationUser", "User")
                         .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("UserId");
 
                     b.Navigation("User");
                 });

@@ -2,7 +2,7 @@
 {
     public class CartSummaryResponseModel
     {
-        public required List<CartItemSummary> Items { get; set; }
+        public List<CartItemSummary> Items { get; set; }
         public decimal Subtotal { get; set; }
         public decimal ShippingCost { get; set; }
         public decimal Tax { get; set; }

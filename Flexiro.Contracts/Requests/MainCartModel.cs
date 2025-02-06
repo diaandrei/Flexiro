@@ -5,7 +5,7 @@ namespace Flexiro.Contracts.Requests
     public class MainCartModel
     {
         public int CartId { get; set; }
-        public required List<CartItemDetailModel> Items { get; set; }
+        public List<CartItemDetailModel> Items { get; set; }
         public decimal SubTotal { get; set; }
         public decimal TotalAmount { get; set; }
         public decimal? Discount { get; set; }
