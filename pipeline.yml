@@ -1,0 +1,95 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+  buildConfiguration: 'Release'
+  vmImageName: 'ubuntu-latest'
+
+stages:
+  - stage: Build
+    displayName: Build
+    jobs:
+      - job: Build
+        displayName: Build
+        pool:
+          name: moviesagent
+          demands:
+            - Agent.Name -equals MoviesPipelineAgent
+        timeoutInMinutes: 30
+
+        steps:
+          - task: UseDotNet@2
+            displayName: Use .NET Core SDK
+            inputs:
+              packageType: 'sdk'
+              version: '8.x'
+              installationPath: $(Agent.ToolsDirectory)/dotnet
+
+          - script: |
+              echo "##[section]Changing to the Flexiro.Api project directory"
+              cd "Flexiro/Flexiro.Api"
+              echo "##[section]Building the project"
+              dotnet publish --configuration $(buildConfiguration) --output $(System.DefaultWorkingDirectory)/build
+            displayName: Build and Publish
+
+          - script: |
+              echo "##[section]Changing to the Flexiro.Services.Tests project directory"
+              cd "Flexiro/Flexiro.Services.Tests"
+              
+              echo "##[section]Restoring NuGet packages"
+              dotnet restore
+              
+              echo "##[section]Running tests using the Flexiro.Services.Tests.csproj"
+              dotnet test --no-restore --verbosity normal --configuration $(buildConfiguration)
+            displayName: Restore and Run Tests
+
+          - task: PublishPipelineArtifact@1
+            displayName: "Publish Artifact"
+            inputs:
+              targetPath: "$(System.DefaultWorkingDirectory)/build"
+              artifactName: "drop"
+              publishLocation: "Pipeline"
+
+  - stage: Approval
+    displayName: "Approval Before Deploy"
+    dependsOn: Build
+    jobs:
+      - job: ManualApproval
+        pool: server
+        steps:
+          - task: ManualValidation@0
+            inputs:
+              instructions: 'Please approve or reject the deployment.'
+
+  - stage: DeployToProduction
+    displayName: "Production"
+    dependsOn: Approval
+    condition: succeeded()
+    jobs:
+      - deployment: Deploy
+        environment: Production
+        pool:
+          name: moviesagent
+          demands:
+            - Agent.Name -equals MoviesPipelineAgent
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: "drop"
+
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: "Visual Studio Enterprise Subscription(e5855b08-7ae6-492b-b26a-0729c22fa918)"
+                    appType: "webApp"
+                    appName: "FlexiroApi"
+                    package: "$(Pipeline.Workspace)/drop"
