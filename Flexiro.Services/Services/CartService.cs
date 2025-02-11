@@ -286,12 +286,10 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Call repository function to clear the cart
                 bool success = await _cartRepository.ClearCartAsync(userId);
 
                 if (success)
                 {
-                    // Prepare the response indicating the cart has been successfully cleared
                     response.Success = true;
                     response.Content = "The cart has been cleared successfully.";
                     response.Title = "Cart Cleared";
@@ -299,15 +297,14 @@ namespace Flexiro.Services.Services
                 }
                 else
                 {
-                    // Prepare the response when cart is not found or an error occurs in the repository
-                    response.Success = false;
-                    response.Title = "Cart Not Found";
-                    response.Description = $"No cart found for UserID '{userId}'.";
+                    response.Success = true;
+                    response.Content = "Cart is empty.";
+                    response.Title = "Cart Cleared";
+                    response.Description = "No cart was found for the specified user; the cart is already empty.";
                 }
             }
             catch (Exception ex)
             {
-                // Log error and prepare error response
                 response.Success = false;
                 response.Title = "Error Clearing Cart";
                 response.Description = "An error occurred while clearing the cart.";
@@ -317,6 +314,7 @@ namespace Flexiro.Services.Services
 
             return response;
         }
+
 
         public async Task<ResponseModel<CartSummaryResponseModel>> GetCartSummaryAsync(string userId)
         {

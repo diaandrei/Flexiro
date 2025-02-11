@@ -362,15 +362,7 @@ namespace Flexiro.API.Controllers
         public async Task<IActionResult> ClearCart(string userId)
         {
             var result = await _cartService.ClearCartAsync(userId);
-
-            if (result.Success)
-            {
-                return Ok(result);
-            }
-            else
-            {
-                return NotFound(result);
-            }
+            return Ok(result);
         }
 
         [HttpGet("cart/item-count/{userId}")]
