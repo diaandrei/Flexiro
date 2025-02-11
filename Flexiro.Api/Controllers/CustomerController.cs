@@ -352,7 +352,6 @@ namespace Flexiro.API.Controllers
             return Ok(new { success = true, totalItems = itemCount ?? 0 });
         }
 
-
         [HttpGet("orders")]
         public async Task<IActionResult> GetCustomerOrders(string userId)
         {
@@ -361,10 +360,13 @@ namespace Flexiro.API.Controllers
 
             var orders = await _orderService.GetOrdersByCustomerAsync(userId);
 
-            if (orders == null! || !orders.Any())
-                return NotFound(new { message = "No orders found for the customer." });
+            var response = new
+            {
+                Message = orders.Any() ? "Orders retrieved successfully." : "No orders found for the customer.",
+                Orders = orders
+            };
 
-            return Ok(orders);
+            return Ok(response);
         }
 
         [HttpGet("wishlist-products/{userId}")]
