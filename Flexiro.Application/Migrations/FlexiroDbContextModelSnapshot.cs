@@ -119,9 +119,9 @@ namespace Flexiro.Application.Migrations
                     b.HasData(
                         new
                         {
-                            Id = "35022332-7280-4cb8-af66-b71e95085b32",
+                            Id = "5170cc74-9ec5-441b-9d2a-2a0f47e5c416",
                             AccessFailedCount = 0,
-                            ConcurrencyStamp = "b8110a44-5afe-4c45-941b-45e5bc1613f2",
+                            ConcurrencyStamp = "44d54bc6-3a56-4191-93f4-d86904157ec6",
                             CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "admin@flexiro.com",
                             EmailConfirmed = true,
@@ -132,9 +132,9 @@ namespace Flexiro.Application.Migrations
                             LockoutEnabled = false,
                             NormalizedEmail = "ADMIN@FLEXIRO.COM",
                             NormalizedUserName = "ADMIN@FLEXIRO.COM",
-                            PasswordHash = "AQAAAAIAAYagAAAAEDML0m3pZDYw5/Ss/yUZb5dq+vAMUQ48ECT7EPst+03h6d/jeyN2zSU6Gxo0q0nVSg==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEOazUYHI95lEsu+u2m4DUp80glc8/m2MfJFRiWxh/xu0apxiSQNpugHz5du14fnEPw==",
                             PhoneNumberConfirmed = false,
-                            SecurityStamp = "e11cf133-a56b-4db7-b440-a1f9415e4c2d",
+                            SecurityStamp = "a5f2c1f6-ea8f-4b1d-9b7f-b415cf43c5dd",
                             TwoFactorEnabled = false,
                             UserName = "admin@flexiro.com"
                         });
@@ -854,7 +854,7 @@ namespace Flexiro.Application.Migrations
                     b.HasData(
                         new
                         {
-                            UserId = "35022332-7280-4cb8-af66-b71e95085b32",
+                            UserId = "5170cc74-9ec5-441b-9d2a-2a0f47e5c416",
                             RoleId = "1"
                         });
                 });
