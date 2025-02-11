@@ -386,9 +386,9 @@ namespace Flexiro.Services.Services
                 var guestCart = await _cartRepository.GetCartByUserIdAsync(guestId);
                 if (guestCart == null)
                 {
-                    response.Success = false;
-                    response.Title = "Guest Cart Not Found";
-                    response.Description = "No cart found for the specified guest ID.";
+                    response.Success = true;
+                    response.Title = "No Guest Cart Found";
+                    response.Description = "There is no guest cart to transfer.";
                     return response;
                 }
 
