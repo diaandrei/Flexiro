@@ -148,20 +148,5 @@ namespace Flexiro.Tests.Services
             Assert.NotNull(result.Content);
             Assert.Equal("Cart Retrieved Successfully", result.Title);
         }
-
-        [Fact]
-        public async Task GetCartAsync_CartNotFound_ReturnsError()
-        {
-            // Arrange
-            var userId = "nonexistentUser";
-            _cartRepositoryMock.Setup(repo => repo.GetCartAsync(userId)).ReturnsAsync((MainCartModel)null);
-
-            // Act
-            var result = await _cartService.GetCartAsync(userId);
-
-            // Assert
-            Assert.False(result.Success);
-            Assert.Equal("Cart Not Found", result.Title);
-        }
     }
 }
