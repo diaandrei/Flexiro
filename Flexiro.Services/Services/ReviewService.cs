@@ -346,7 +346,6 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Check if the product exists
                 if (!await _reviewRepository.ProductExistsAsync(productId))
                 {
                     response.Success = false;
@@ -355,14 +354,19 @@ namespace Flexiro.Services.Services
                     return response;
                 }
 
-                // Fetch the review
                 var review = await _reviewRepository.GetExistingReviewAsync(productId, userId);
 
-                if (review == null!)
+                if (review == null)
                 {
-                    response.Success = false;
-                    response.Title = "Review Not Found";
+                    response.Success = true;
+                    response.Title = "No Review Found";
                     response.Description = "No review found for the specified user and product.";
+                    response.Content = new UserRatingResponseDto
+                    {
+                        ProductId = productId,
+                        UserId = userId,
+                        Rating = 0
+                    };
                 }
                 else
                 {
@@ -387,6 +391,5 @@ namespace Flexiro.Services.Services
 
             return response;
         }
-
     }
 }
