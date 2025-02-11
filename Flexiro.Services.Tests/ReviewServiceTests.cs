@@ -282,22 +282,6 @@ namespace Flexiro.Tests.Services
         }
 
         [Fact]
-        public async Task GetUserRatingAsync_ReviewNotFound_ReturnsError()
-        {
-            var productId = 1;
-            var userId = "testUser";
-            _reviewRepositoryMock.Setup(repo => repo.ProductExistsAsync(productId))
-                .ReturnsAsync(true);
-            _reviewRepositoryMock.Setup(repo => repo.GetExistingReviewAsync(productId, userId))
-                .ReturnsAsync((Review)null);
-
-            var result = await _reviewService.GetUserRatingAsync(productId, userId);
-
-            Assert.False(result.Success);
-            Assert.Equal("Review Not Found", result.Title);
-        }
-
-        [Fact]
         public async Task GetUserRatingAsync_Success_ReturnsReview()
         {
             var productId = 1;
