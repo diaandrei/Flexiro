@@ -62,7 +62,7 @@ namespace Flexiro.Services.Repositories
 
             if (existingCartItem != null)
             {
-                existingCartItem.Quantity = itemRequest.Quantity;
+                existingCartItem.Quantity += itemRequest.Quantity;
                 existingCartItem.PricePerUnit = originalPrice;
                 existingCartItem.DiscountAmount = discountAmount * itemRequest.Quantity;
                 existingCartItem.TotalPrice = priceAfterDiscount * itemRequest.Quantity;

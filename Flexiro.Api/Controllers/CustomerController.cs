@@ -224,35 +224,9 @@ namespace Flexiro.API.Controllers
         public async Task<IActionResult> GetCart(string userId)
         {
             var result = await _cartService.GetCartAsync(userId);
-
-            if (!result.Success)
-            {
-                var emptyCart = new MainCartModel
-                {
-                    CartId = 0,
-                    Items = new List<CartItemDetailModel>(),
-                    SubTotal = 0m,
-                    TotalAmount = 0m,
-                    Discount = 0m,
-                    Tax = 0m,
-                    ShippingCost = 0m,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                var emptyResponse = new ResponseModel<MainCartModel>
-                {
-                    Success = true,
-                    Content = emptyCart,
-                    Title = "Empty Cart",
-                    Description = "No items found in the cart."
-                };
-
-                return Ok(emptyResponse);
-            }
-
             return Ok(result);
         }
+
 
         [HttpPost("add-product-wishlist")]
         public async Task<IActionResult> AddProductToWishlist([FromBody] AddToWishlistRequest request)

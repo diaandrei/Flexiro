@@ -117,19 +117,30 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Call repository function to get the cart data
                 var mainCartModel = await _cartRepository.GetCartAsync(userId);
 
-                // Check if the cart was found
-                if (mainCartModel == null!)
+                if (mainCartModel == null)
                 {
-                    response.Success = false;
-                    response.Title = "Cart Not Found";
-                    response.Description = $"Cart with user ID '{userId}' does not exist.";
+                    mainCartModel = new MainCartModel
+                    {
+                        CartId = 0,
+                        Items = new List<CartItemDetailModel>(),
+                        SubTotal = 0m,
+                        TotalAmount = 0m,
+                        Discount = 0m,
+                        Tax = 0m,
+                        ShippingCost = 0m,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    response.Success = true;
+                    response.Content = mainCartModel;
+                    response.Title = "Empty Cart";
+                    response.Description = "No cart exists for the specified user; the cart is empty.";
                     return response;
                 }
 
-                // Populate response with cart details
                 response.Success = true;
                 response.Content = mainCartModel;
                 response.Title = "Cart Retrieved Successfully";
@@ -141,7 +152,7 @@ namespace Flexiro.Services.Services
                 response.Title = "Error Retrieving Cart";
                 response.Description = "An error occurred while retrieving the cart.";
                 response.ExceptionMessage = ex.Message;
-                _logger.LogError(ex, "Error occurred while retrieving cart with ID: {CartId}", userId);
+                _logger.LogError(ex, "Error occurred while retrieving cart for user ID: {UserId}", userId);
             }
 
             return response;
