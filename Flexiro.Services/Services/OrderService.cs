@@ -18,10 +18,11 @@ namespace Flexiro.Services.Services
         private readonly ICartRepository _cartRepository;
         private readonly IShippingRepository _shippingAddressRepository;
         private readonly INotificationService _notificationService;
+        private readonly IProductService _productService;
 
         public OrderService(IUnitOfWork unitOfWork, IMapper mapper, IOrderRepository orderRepository,
             ICartRepository cartRepository,
-            IShippingRepository shippingAddressRepository, INotificationService notificationService)
+            IShippingRepository shippingAddressRepository, INotificationService notificationService, IProductService productService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
@@ -29,6 +30,7 @@ namespace Flexiro.Services.Services
             _cartRepository = cartRepository;
             _shippingAddressRepository = shippingAddressRepository;
             _notificationService = notificationService;
+            _productService = productService;
         }
 
         public async Task<ResponseModel<OrderResponseDto>> PlaceOrderAsync(string userId, AddUpdateShippingAddressRequest shippingAddressDto, string paymentMethod)
@@ -37,17 +39,19 @@ namespace Flexiro.Services.Services
 
             try
             {
-                // Call the repository method to handle data fetching and calculations
                 var order = await _orderRepository.CreateOrderAsync(userId, shippingAddressDto, paymentMethod);
 
-                if (order == null!)
+                if (order == null)
                 {
                     response.Success = false;
                     response.Title = "Cart is empty";
                     return response;
                 }
 
-                // Prepare OrderResponseDto for the user
+                foreach (var item in order.OrderDetails)
+                {
+                    await _productService.UpdateProductTotalSoldAsync(item.ProductId, item.Quantity);
+                }
                 var orderResponse = new OrderResponseDto
                 {
                     OrderId = order.OrderId,
@@ -83,6 +87,7 @@ namespace Flexiro.Services.Services
 
             return response;
         }
+
 
         public async Task<int> GetTotalOrdersByShopAsync(int shopId)
         {

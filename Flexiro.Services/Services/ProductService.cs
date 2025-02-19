@@ -697,5 +697,23 @@ namespace Flexiro.Services.Services
 
             return response;
         }
+
+        public async Task UpdateProductTotalSoldAsync(int productId, int quantitySold)
+        {
+            var product = await _unitOfWork.Repository
+                .GetQueryable<Product>(p => p.ProductId == productId)
+                .FirstOrDefaultAsync();
+
+            if (product == null)
+            {
+                return;
+            }
+
+            product.TotalSold = (product.TotalSold ?? 0) + quantitySold;
+
+            _unitOfWork.Repository.Update(product);
+            await _unitOfWork.Repository.CompleteAsync();
+        }
+
     }
 }

@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using EasyRepository.EFCore.Generic;
-using Flexiro.Application.DTOs;
 using Flexiro.Application.Models;
 using Flexiro.Contracts.Requests;
 using Flexiro.Contracts.Responses;
@@ -20,6 +19,7 @@ namespace Flexiro.Tests.Services
         private readonly Mock<ICartRepository> _cartRepositoryMock;
         private readonly Mock<IShippingRepository> _shippingRepositoryMock;
         private readonly Mock<INotificationService> _notificationServiceMock;
+        private readonly Mock<IProductService> _productServiceMock;
 
         public OrderServiceTests()
         {
@@ -29,13 +29,16 @@ namespace Flexiro.Tests.Services
             _cartRepositoryMock = new Mock<ICartRepository>();
             _shippingRepositoryMock = new Mock<IShippingRepository>();
             _notificationServiceMock = new Mock<INotificationService>();
+            _productServiceMock = new Mock<IProductService>();
+
             _orderService = new OrderService(
                 _unitOfWorkMock.Object,
                 _mapperMock.Object,
                 _orderRepositoryMock.Object,
                 _cartRepositoryMock.Object,
                 _shippingRepositoryMock.Object,
-                _notificationServiceMock.Object
+                _notificationServiceMock.Object,
+                _productServiceMock.Object
             );
         }
 
