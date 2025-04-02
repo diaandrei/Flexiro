@@ -15,111 +15,157 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Text;
 using System.Text.Json;
 using Braintree;
-using Flexiro.Contracts.Requests;
-using Stripe;
 using Flexiro.Services.Services;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
 
-var builder = WebApplication.CreateBuilder(args);
-var config = builder.Configuration;
-var connectionString = config.GetConnectionString("Database");
-
-// Add services to the container.
-builder.Services.AddDbContext<FlexiroDbContext>(options =>
-        options.UseSqlServer(connectionString));
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
-         .AddEntityFrameworkStores<FlexiroDbContext>()
-         .AddDefaultTokenProviders();
-
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-builder.Services.AddAuthentication(x =>
+internal class Program
 {
-    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    x.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(x =>
-{
-    x.TokenValidationParameters = new TokenValidationParameters
+    private static void Main(string[] args)
     {
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(config["Jwt:Key"]!)),
-        ValidateIssuerSigningKey = true,
-        ValidateLifetime = true,
-        ValidIssuer = config["Jwt:Issuer"],
-        ValidAudience = config["Jwt:Audience"],
-        ValidateIssuer = true,
-        ValidateAudience = true
-    };
-});
+        var builder = WebApplication.CreateBuilder(args);
+        var config = builder.Configuration;
 
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-builder.Services.AddAutoMapper(typeof(Program).Assembly);
-builder.Services.AddAutoMapper(typeof(AutoMapperProfile));
-builder.Services.AddApplication();
-builder.Services.ApplyEasyRepository<FlexiroDbContext>();
-builder.Services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwagger>();
-builder.Services.AddControllers();
-builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
-StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
+        string keyVaultUri = "https://flexirovault.vault.azure.net/";
 
-builder.Services.AddSingleton<IBraintreeGateway>(sp =>
-{
-    return new BraintreeGateway
-    {
-        Environment = Braintree.Environment.SANDBOX,
-        MerchantId = "2rx493v4xqzxfdnq",
-        PublicKey = "d65vy6nny4y3xgxz",
-        PrivateKey = "c102e9d54d8b0dbf4a87fd57dc27160d"
-    };
-});
+        try
+        {
+            var secretClient = new SecretClient(
+                new Uri(keyVaultUri),
+                new DefaultAzureCredential());
 
-builder.Services.AddSwaggerGen();
+            string dbConnectionString = secretClient.GetSecret("FlexiroDbConnectionString").Value.ToString();
+            config["ConnectionStrings:Database"] = dbConnectionString;
 
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-    });
+            string jwtKey = secretClient.GetSecret("JwtKey").Value.ToString();
+            config["Jwt:Key"] = jwtKey;
 
-builder.Services.AddSignalR();
+            string blobStorageConnectionString = secretClient.GetSecret("BlobStorageConnectionString").Value.ToString();
+            config["AzureBlobStorage:ConnectionString"] = blobStorageConnectionString;
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowLocalhostAndProduction",
-        builder => builder
-            .WithOrigins("http://localhost:3000", "https://flexiroapi-d7akfuaug8d7esdg.uksouth-01.azurewebsites.net", "https://flexiroweb-h3g0fvfkdbhcdvgk.uksouth-01.azurewebsites.net")
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials());
-});
+            string braintreeMerchantId = secretClient.GetSecret("MerchantId").Value.ToString();
+            string braintreePublicKey = secretClient.GetSecret("PublicKey").Value.ToString();
+            string braintreePrivateKey = secretClient.GetSecret("PrivateKey").Value.ToString();
 
-var app = builder.Build();
+            config["Braintree:MerchantId"] = braintreeMerchantId;
+            config["Braintree:PublicKey"] = braintreePublicKey;
+            config["Braintree:PrivateKey"] = braintreePrivateKey;
 
-app.UseSwagger();
-app.UseSwaggerUI();
-app.UseCors("AllowLocalhostAndProduction");
-app.Use(async (context, next) =>
-{
-    if (context.Request.Path == "/")
-    {
-        context.Response.Redirect("/swagger/index.html");
-        return;
+            JwtTokenGenerator.Initialize(secretClient);
+
+            Console.WriteLine("Successfully loaded secrets from Azure Key Vault");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading secrets from Key Vault: {ex.Message}");
+
+            if (builder.Environment.IsDevelopment())
+            {
+                Console.WriteLine("Using local configuration values for development");
+            }
+            else
+            {
+                throw new Exception("Failed to load the configurations from the Key Vault");
+            }
+        }
+
+        var connectionString = config.GetConnectionString("Database");
+
+        builder.Services.AddDbContext<FlexiroDbContext>(options =>
+                options.UseSqlServer(connectionString));
+        builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
+                 .AddEntityFrameworkStores<FlexiroDbContext>()
+                 .AddDefaultTokenProviders();
+
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen();
+
+        builder.Services.AddAuthentication(x =>
+        {
+            x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            x.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+        }).AddJwtBearer(x =>
+        {
+            x.TokenValidationParameters = new TokenValidationParameters
+            {
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(config["Jwt:Key"]!)),
+                ValidateIssuerSigningKey = true,
+                ValidateLifetime = true,
+                ValidIssuer = config["Jwt:Issuer"],
+                ValidAudience = config["Jwt:Audience"],
+                ValidateIssuer = true,
+                ValidateAudience = true
+            };
+        });
+
+        builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+        builder.Services.AddAutoMapper(typeof(Program).Assembly);
+        builder.Services.AddAutoMapper(typeof(AutoMapperProfile));
+        builder.Services.AddApplication();
+        builder.Services.ApplyEasyRepository<FlexiroDbContext>();
+        builder.Services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwagger>();
+        builder.Services.AddControllers();
+
+        builder.Services.AddSingleton<IBraintreeGateway>(sp =>
+        {
+            return new BraintreeGateway
+            {
+                Environment = Braintree.Environment.SANDBOX,
+                MerchantId = config["Braintree:MerchantId"],
+                PublicKey = config["Braintree:PublicKey"],
+                PrivateKey = config["Braintree:PrivateKey"]
+            };
+        });
+
+        builder.Services.AddSwaggerGen();
+
+        builder.Services.AddControllers()
+            .AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+                options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+            });
+
+        builder.Services.AddSignalR();
+
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("AllowLocalhostAndProduction",
+                builder => builder
+                    .WithOrigins("http://localhost:3000", "https://flexiroapi-d7akfuaug8d7esdg.uksouth-01.azurewebsites.net", "https://flexiroweb-h3g0fvfkdbhcdvgk.uksouth-01.azurewebsites.net")
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowCredentials());
+        });
+
+        var app = builder.Build();
+
+        app.UseSwagger();
+        app.UseSwaggerUI();
+        app.UseCors("AllowLocalhostAndProduction");
+        app.Use(async (context, next) =>
+        {
+            if (context.Request.Path == "/")
+            {
+                context.Response.Redirect("/swagger/index.html");
+                return;
+            }
+            await next();
+        });
+        app.UseMiddleware<ValidationMappingMiddleware>();
+        app.UseMiddleware<JwtMiddleware>();
+        app.UseHttpsRedirection();
+        app.UseRouting();
+        app.UseStaticFiles();
+        app.UseEndpoints(endpoints =>
+        {
+            endpoints.MapHub<NotificationHub>("/notificationHub");
+        });
+
+        app.MapControllers();
+
+        app.Run();
     }
-    await next();
-});
-app.UseMiddleware<ValidationMappingMiddleware>();
-app.UseMiddleware<JwtMiddleware>();
-app.UseHttpsRedirection();
-app.UseRouting();
-app.UseStaticFiles();
-app.UseEndpoints(endpoints =>
-{
-    endpoints.MapHub<NotificationHub>("/notificationHub");
-});
-
-
-app.MapControllers();
-
-app.Run();
+}

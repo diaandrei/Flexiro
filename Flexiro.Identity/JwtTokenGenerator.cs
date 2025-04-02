@@ -4,19 +4,32 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using Azure.Security.KeyVault.Secrets;
 
 namespace Flexiro.Identity
 {
     public static class JwtTokenGenerator
     {
-        private const string TokenSecret = "MySuperSecretKeyHere1234567890IneedToStoreThisSecurely";
         private static readonly TimeSpan TokenLifetime = TimeSpan.FromDays(365);
+
+        private static SecretClient? _secretClient;
+
+        public static void Initialize(SecretClient secretClient)
+        {
+            _secretClient = secretClient;
+        }
 
         public static string GenerateToken(TokenGenerationRequest request)
         {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes(TokenSecret);
+            if (_secretClient == null)
+            {
+                throw new InvalidOperationException("JwtTokenGenerator has not been initialized with SecretClient. Call Initialize() first.");
+            }
 
+            string tokenSecret = _secretClient.GetSecret("JwtKey").Value.Value;
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(tokenSecret);
             var claims = new List<Claim>
             {
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
@@ -26,7 +39,7 @@ namespace Flexiro.Identity
                 new("roleId", request.RoleId),
                 new("isTrustedMember", request.IsTrustedMember.ToString()),
                 new("isAdmin", request.IsAdmin.ToString()),
-                 new("IsSeller", request.IsSeller.ToString()),
+                new("IsSeller", request.IsSeller.ToString()),
             };
 
             foreach (var claimPair in request.CustomClaims)
@@ -39,7 +52,6 @@ namespace Flexiro.Identity
                     JsonValueKind.Number => ClaimValueTypes.Double,
                     _ => ClaimValueTypes.String
                 };
-
                 var claim = new Claim(claimPair.Key, claimPair.Value.ToString()!, valueType);
                 claims.Add(claim);
             }

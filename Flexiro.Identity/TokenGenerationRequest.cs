@@ -9,7 +9,6 @@
         public bool IsSeller { get; set; }
         public bool IsTrustedMember { get; set; }
 
-        // A dictionary to store any additional claims the user might have
         public Dictionary<string, object> CustomClaims { get; set; } = new Dictionary<string, object>();
     }
 }
