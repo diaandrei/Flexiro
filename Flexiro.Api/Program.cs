@@ -18,6 +18,7 @@ using Braintree;
 using Flexiro.Services.Services;
 using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
+using Microsoft.Data.SqlClient;
 
 internal class Program
 {
@@ -25,6 +26,7 @@ internal class Program
     {
         var builder = WebApplication.CreateBuilder(args);
         var config = builder.Configuration;
+        string connectionString = string.Empty;
 
         string keyVaultUri = "https://flexirovault.vault.azure.net/";
 
@@ -34,18 +36,39 @@ internal class Program
                 new Uri(keyVaultUri),
                 new DefaultAzureCredential());
 
-            string dbConnectionString = secretClient.GetSecret("FlexiroDbConnectionString").Value.ToString();
-            config["ConnectionStrings:Database"] = dbConnectionString;
+            var secretResponse = secretClient.GetSecret("FlexiroDbConnectionString");
+            string dbConnectionString = secretResponse.Value.Value;
 
-            string jwtKey = secretClient.GetSecret("JwtKey").Value.ToString();
+            dbConnectionString = dbConnectionString.Trim().Trim('"', '\'');
+
+            try
+            {
+                var sqlBuilder = new SqlConnectionStringBuilder(dbConnectionString);
+                config["ConnectionStrings:Database"] = sqlBuilder.ConnectionString;
+                connectionString = sqlBuilder.ConnectionString;
+            }
+            catch (Exception csEx)
+            {
+                if (builder.Environment.IsDevelopment())
+                {
+                    connectionString = builder.Configuration.GetConnectionString("Database");
+                    Console.WriteLine("Falling back to local connection string");
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            string jwtKey = secretClient.GetSecret("JwtKey").Value.Value;
             config["Jwt:Key"] = jwtKey;
 
-            string blobStorageConnectionString = secretClient.GetSecret("BlobStorageConnectionString").Value.ToString();
+            string blobStorageConnectionString = secretClient.GetSecret("BlobStorageConnectionString").Value.Value;
             config["AzureBlobStorage:ConnectionString"] = blobStorageConnectionString;
 
-            string braintreeMerchantId = secretClient.GetSecret("MerchantId").Value.ToString();
-            string braintreePublicKey = secretClient.GetSecret("PublicKey").Value.ToString();
-            string braintreePrivateKey = secretClient.GetSecret("PrivateKey").Value.ToString();
+            string braintreeMerchantId = secretClient.GetSecret("MerchantId").Value.Value;
+            string braintreePublicKey = secretClient.GetSecret("PublicKey").Value.Value;
+            string braintreePrivateKey = secretClient.GetSecret("PrivateKey").Value.Value;
 
             config["Braintree:MerchantId"] = braintreeMerchantId;
             config["Braintree:PublicKey"] = braintreePublicKey;
@@ -62,14 +85,22 @@ internal class Program
             if (builder.Environment.IsDevelopment())
             {
                 Console.WriteLine("Using local configuration values for development");
+                connectionString = builder.Configuration.GetConnectionString("Database");
             }
             else
             {
-                throw new Exception("Failed to load the configurations from the Key Vault");
+                throw new Exception("Failed to load the configurations from the Key Vault", ex);
             }
         }
 
-        var connectionString = config.GetConnectionString("Database");
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            connectionString = config.GetConnectionString("Database");
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                throw new InvalidOperationException("No valid database connection string found");
+            }
+        }
 
         builder.Services.AddDbContext<FlexiroDbContext>(options =>
                 options.UseSqlServer(connectionString));
